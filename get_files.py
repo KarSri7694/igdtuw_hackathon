@@ -109,6 +109,64 @@ def get_files_by_extension_grouped(
     return grouped
 
 
+def save_file_lists(
+    directory: Union[str, Path],
+    extensions: List[str],
+    output_folder: str = "temp",
+    recursive: bool = False
+) -> dict:
+    """
+    Scan directory for files and save lists grouped by extension.
+    
+    Args:
+        directory: Path to the directory to search
+        extensions: List of file extensions (e.g., ['.txt', '.md'])
+        output_folder: Folder to save file lists (default: 'temp')
+        recursive: If True, search subdirectories as well
+    
+    Returns:
+        Dictionary with extension counts and saved file paths
+    
+    Example:
+        result = save_file_lists('/path/to/dir', ['.txt', '.md'])
+    """
+    logger.info(f"Scanning {directory} for extensions: {extensions}")
+    
+    # Get files grouped by extension
+    files_grouped = get_files_by_extension_grouped(directory, extensions, recursive)
+    
+    # Create output folder
+    os.makedirs(output_folder, exist_ok=True)
+    
+    result = {
+        'total_files': 0,
+        'saved_lists': []
+    }
+    
+    for ext, files in files_grouped.items():
+        if files:  # Only create file if there are files with this extension
+            # Remove the dot from extension for filename
+            ext_name = ext.lstrip('.')
+            output_filename = f"file_list_{ext_name}.txt"
+            output_path = os.path.join(output_folder, output_filename)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(f"File List - Extension: {ext}\n")
+                f.write(f"Directory: {directory}\n")
+                f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Total files: {len(files)}\n")
+                f.write("=" * 80 + "\n\n")
+                for file in files:
+                    f.write(f"{file}\n")
+            
+            result['total_files'] += len(files)
+            result['saved_lists'].append(output_path)
+            logger.info(f"Saved {len(files)} {ext} files to {output_filename}")
+    
+    logger.info(f"Total: {result['total_files']} file(s) saved to {len(result['saved_lists'])} list(s)")
+    return result
+
+
 if __name__ == "__main__":
     # Example usage
     import sys
@@ -120,22 +178,42 @@ if __name__ == "__main__":
     current_dir = "C:\\Users\\Kartikeya Srivastava\\Downloads"
     logger.info(f"Searching in: {current_dir}")
     
-    # Get files
-    files = get_files_by_extension(current_dir, ['.md', '.txt', '.jpg', '.png', '.pdf'], recursive=False)
+    # Get files grouped by extension
+    extensions = ['.md', '.txt', '.jpg', '.png', '.pdf']
+    files_grouped = get_files_by_extension_grouped(current_dir, extensions, recursive=False)
     
-    # Save output to text file
+    # Save output to separate text files for each extension
     output_folder = "temp"
     os.makedirs(output_folder, exist_ok=True)
     
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_filename = f"file_list.txt"
-    output_path = os.path.join(output_folder, output_filename)
+    total_files = 0
+    saved_files = []
     
-    with open(output_path, 'w', encoding='utf-8') as f:
-        for file in files:
-            f.write(f"{file}\n")
+    for ext, files in files_grouped.items():
+        if files:  # Only create file if there are files with this extension
+            # Remove the dot from extension for filename
+            ext_name = ext.lstrip('.')
+            output_filename = f"file_list_{ext_name}.txt"
+            output_path = os.path.join(output_folder, output_filename)
+            
+            with open(output_path, 'w', encoding='utf-8') as f:
+                f.write(f"File List - Extension: {ext}\n")
+                f.write(f"Directory: {current_dir}\n")
+                f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+                f.write(f"Total files: {len(files)}\n")
+                f.write("=" * 80 + "\n\n")
+                for file in files:
+                    f.write(f"{file}\n")
+            
+            total_files += len(files)
+            saved_files.append(output_filename)
+            print(f"\n{ext}: {len(files)} file(s)")
+            for file in files[:5]:
+                print(f"  - {file}")
+            if len(files) > 5:
+                print(f"  ... and {len(files) - 5} more")
+            print(f"  Saved to: {output_filename}")
     
-    print(f"\nFound {len(files)} files:")
-    for file in files:
-        print(f"  - {file}")
-    print(f"\nOutput saved to: {output_path}")
+    print(f"\n{'='*80}")
+    print(f"Total: {total_files} file(s) across {len(saved_files)} extension(s)")
+    print(f"Output files saved in: {output_folder}/")
