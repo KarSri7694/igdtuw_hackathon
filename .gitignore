@@ -1,0 +1,5 @@
+/model_folder
+/temp
+__pycache__
+*.log
+*.tmp
