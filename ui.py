@@ -559,6 +559,11 @@ class PrivacyScannerApp:
             # Display results
             if not self.stop_requested:
                 self.app.after(0, lambda: self.display_results(results))
+                # Show popup for sensitive files
+                sensitive_files = [r for r in results if r.get('risk_level') in ['critical', 'high', 'medium']]
+                if sensitive_files:
+                    self.app.after(0, lambda: self.show_results_popup(sensitive_files))
+
             else:
                 self.app.after(0, lambda: self.display_partial_results(results))
             
@@ -695,6 +700,266 @@ Risk Distribution:
         
         self.results_text.insert("end", f"\n{'='*80}\n")
         self.results_text.insert("end", f"Scan completed at: {Path(self.scanner.output_folder).absolute()}\n")
+    
+    
+    def show_results_popup(self, sensitive_files):
+        """Show scan results in a popup window with file actions"""
+        # Create popup window
+        popup = ctk.CTkToplevel(self.app)
+        popup.title(f"Sensitive Files Found - {len(sensitive_files)} file(s)")
+        popup.geometry("1400x800")
+        
+        # Make it modal
+        popup.grab_set()
+        popup.focus()
+        
+        # Header
+        header_frame = ctk.CTkFrame(popup, fg_color="#8B0000")
+        header_frame.pack(fill="x", padx=0, pady=0)
+        
+        header_label = ctk.CTkLabel(
+            header_frame,
+            text=f"🚨 {len(sensitive_files)} SENSITIVE FILE(S) DETECTED",
+            font=("Arial", 20, "bold"),
+            text_color="white"
+        )
+        header_label.pack(pady=15)
+        
+        # Main content frame with scrollbar
+        main_frame = ctk.CTkScrollableFrame(popup)
+        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Display each sensitive file
+        for idx, result in enumerate(sensitive_files, 1):
+            self.create_file_card(main_frame, result, idx)
+        
+        # Close button at bottom
+        close_btn = ctk.CTkButton(
+            popup,
+            text="Close",
+            command=popup.destroy,
+            width=200,
+            height=40,
+            font=("Arial", 14, "bold")
+        )
+        close_btn.pack(pady=10)
+    
+    def create_file_card(self, parent, result, idx):
+        """Create a card for each sensitive file with path, recommendations, and actions"""
+        filename = result.get('filename', 'Unknown')
+        file_path = result.get('file_path') or result.get('image_path', 'N/A')
+        risk_level = result.get('risk_level', 'low').upper()
+        categories = result.get('detected_categories', [])
+        recommendations = result.get('recommendations', [])
+        
+        # Risk color
+        risk_colors = {
+            'CRITICAL': '#8B0000',
+            'HIGH': '#FF6347',
+            'MEDIUM': '#FFA500',
+            'LOW': '#90EE90'
+        }
+        risk_color = risk_colors.get(risk_level, '#808080')
+        
+        # Card frame
+        card_frame = ctk.CTkFrame(parent, border_width=2, border_color=risk_color)
+        card_frame.pack(fill="x", padx=10, pady=10)
+        
+        # Top section with risk indicator
+        top_frame = ctk.CTkFrame(card_frame, fg_color=risk_color)
+        top_frame.pack(fill="x", padx=0, pady=0)
+        
+        risk_label = ctk.CTkLabel(
+            top_frame,
+            text=f"{idx}. {risk_level} RISK - {filename}",
+            font=("Arial", 14, "bold"),
+            text_color="white"
+        )
+        risk_label.pack(pady=10, padx=10, anchor="w")
+        
+        # Content frame with 3 columns
+        content_frame = ctk.CTkFrame(card_frame)
+        content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+        
+        # Left column - File Path
+        left_frame = ctk.CTkFrame(content_frame)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        
+        path_label = ctk.CTkLabel(
+            left_frame,
+            text="📁 File Location:",
+            font=("Arial", 12, "bold")
+        )
+        path_label.pack(anchor="w", pady=(5, 5))
+        
+        path_text = ctk.CTkTextbox(
+            left_frame,
+            height=80,
+            font=("Consolas", 10),
+            wrap="word"
+        )
+        path_text.pack(fill="both", expand=True, pady=(0, 5))
+        path_text.insert("1.0", file_path)
+        path_text.configure(state="disabled")
+        
+        if categories:
+            cat_label = ctk.CTkLabel(
+                left_frame,
+                text="🏷️ Detected Categories:",
+                font=("Arial", 11, "bold")
+            )
+            cat_label.pack(anchor="w", pady=(10, 5))
+            
+            cat_text = ctk.CTkTextbox(
+                left_frame,
+                height=60,
+                font=("Arial", 10)
+            )
+            cat_text.pack(fill="both", expand=True)
+            cat_text.insert("1.0", "\n".join([f"• {cat}" for cat in categories]))
+            cat_text.configure(state="disabled")
+        
+        # Middle column - Recommendations
+        middle_frame = ctk.CTkFrame(content_frame)
+        middle_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
+        
+        rec_label = ctk.CTkLabel(
+            middle_frame,
+            text="⚠️ RECOMMENDED ACTIONS:",
+            font=("Arial", 12, "bold"),
+            text_color="#FF6347"
+        )
+        rec_label.pack(anchor="w", pady=(5, 10))
+        
+        rec_text = ctk.CTkTextbox(
+            middle_frame,
+            font=("Arial", 11),
+            wrap="word"
+        )
+        rec_text.pack(fill="both", expand=True)
+        
+        if recommendations:
+            for i, rec in enumerate(recommendations, 1):
+                rec_text.insert("end", f"{i}. {rec}\n\n")
+        else:
+            rec_text.insert("1.0", "No specific recommendations available.")
+        
+        rec_text.configure(state="disabled")
+        
+        # Right column - Action Buttons
+        right_frame = ctk.CTkFrame(content_frame)
+        right_frame.grid(row=0, column=2, sticky="nsew")
+        
+        actions_label = ctk.CTkLabel(
+            right_frame,
+            text="🛠️ Actions:",
+            font=("Arial", 12, "bold")
+        )
+        actions_label.pack(pady=(5, 15))
+        
+        # Delete button
+        delete_btn = ctk.CTkButton(
+            right_frame,
+            text="🗑️ Delete File",
+            command=lambda: self.delete_sensitive_file(file_path, card_frame),
+            width=180,
+            height=50,
+            font=("Arial", 13, "bold"),
+            fg_color="#8B0000",
+            hover_color="#660000"
+        )
+        delete_btn.pack(pady=10)
+        
+        # Vault button (dummy)
+        vault_btn = ctk.CTkButton(
+            right_frame,
+            text="🔒 Store in Vault",
+            command=lambda: self.store_in_vault(file_path, filename),
+            width=180,
+            height=50,
+            font=("Arial", 13, "bold"),
+            fg_color="#1a5490",
+            hover_color="#0f3b6b"
+        )
+        vault_btn.pack(pady=10)
+        
+        # Open file location button
+        open_btn = ctk.CTkButton(
+            right_frame,
+            text="📂 Open Location",
+            command=lambda: self.open_file_location(file_path),
+            width=180,
+            height=40,
+            font=("Arial", 11)
+        )
+        open_btn.pack(pady=10)
+        
+        # Configure grid weights
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(1, weight=2)
+        content_frame.grid_columnconfigure(2, weight=1)
+    
+    def delete_sensitive_file(self, file_path, card_frame):
+        """Delete a sensitive file after confirmation"""
+        response = messagebox.askyesno(
+            "Delete Sensitive File",
+            f"Are you sure you want to permanently delete this file?\n\n{file_path}\n\nThis action cannot be undone!",
+            icon="warning"
+        )
+        
+        if response:
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                    messagebox.showinfo(
+                        "File Deleted",
+                        f"File successfully deleted:\n{file_path}"
+                    )
+                    # Grey out the card
+                    card_frame.configure(fg_color="#2B2B2B", border_color="#555555")
+                    # Update all children to show deleted state
+                    for widget in card_frame.winfo_children():
+                        if isinstance(widget, ctk.CTkFrame):
+                            widget.configure(fg_color="#2B2B2B")
+                else:
+                    messagebox.showerror(
+                        "File Not Found",
+                        f"File not found:\n{file_path}"
+                    )
+            except Exception as e:
+                messagebox.showerror(
+                    "Delete Error",
+                    f"Failed to delete file:\n{str(e)}"
+                )
+    
+    def store_in_vault(self, file_path, filename):
+        """Store file in encrypted vault (dummy implementation)"""
+        messagebox.showinfo(
+            "Store in Vault",
+            f"📦 Vault Feature (Coming Soon)\n\nThis will encrypt and securely store:\n{filename}\n\nFeatures:\n• AES-256 encryption\n• Password protected vault\n• Secure deletion of original\n• Easy file retrieval"
+        )
+    
+    def open_file_location(self, file_path):
+        """Open the folder containing the file"""
+        try:
+            folder_path = os.path.dirname(file_path)
+            if os.path.exists(folder_path):
+                if os.name == 'nt':  # Windows
+                    os.startfile(folder_path)
+                elif os.name == 'posix':  # macOS/Linux
+                    import subprocess
+                    subprocess.Popen(['xdg-open', folder_path])
+            else:
+                messagebox.showerror(
+                    "Folder Not Found",
+                    f"Folder not found:\n{folder_path}"
+                )
+        except Exception as e:
+            messagebox.showerror(
+                "Error",
+                f"Failed to open folder:\n{str(e)}"
+            )
+
     
     def display_partial_results(self, results):
         """Display partial results when scan is stopped"""
@@ -1166,7 +1431,7 @@ Respond ONLY with the JSON object, no other text."""
         threading.Thread(target=analyze_sensitive, daemon=True).start()
     
     def display_sensitive_results(self, results):
-        """Display LLM-analyzed sensitive documents"""
+        """Display LLM-analyzed sensitive documents in popup"""
         self.results_text.delete("1.0", "end")
         
         if not results:
@@ -1182,83 +1447,46 @@ Respond ONLY with the JSON object, no other text."""
             )
             return
         
-        # Header
-        header = f"""{'='*80}
+        # Show summary in main text area
+        summary = f"""{'='*80}
 🚨 SENSITIVE DOCUMENTS FOUND: {len(results)}
 {'='*80}
 
-⚠️  These documents may contain sensitive or critical information.
-Review them carefully and consider removing or securing them.
+The LLM has analyzed all documents and found {len(results)} file(s) containing
+sensitive or critical information.
 
+A detailed review window has been opened showing:
+• File locations
+• Recommended actions
+• Quick action buttons to delete or secure files
+
+Please review each file carefully and take appropriate action.
+{'='*80}
 """
-        self.results_text.insert("end", header)
+        self.results_text.insert("end", summary)
         
-        # List results
-        for idx, (filepath, data) in enumerate(results, 1):
-            filename = data['filename']
+        # Convert results to scan format and show popup
+        converted_results = []
+        for filepath, data in results:
             analysis = data['analysis']
-            is_ocr = data.get('is_ocr', False)
             
-            risk_level = analysis.get('risk_level', 'low').upper()
-            confidence = analysis.get('confidence', 'unknown')
-            categories = ', '.join(analysis.get('categories', []))
-            explanation = analysis.get('explanation', 'No explanation provided')
-            
-            # Risk indicator
-            risk_icons = {
-                'CRITICAL': '🔴',
-                'HIGH': '🟠',
-                'MEDIUM': '🟡',
-                'LOW': '🟢'
+            # Convert to scan result format
+            converted = {
+                'filename': data['filename'],
+                'file_path': filepath,
+                'file_type': 'text/markdown',
+                'risk_level': analysis.get('risk_level', 'low'),
+                'contains_sensitive_info': True,
+                'detected_categories': analysis.get('detected_categories', []),
+                'specific_findings': analysis.get('specific_findings', []),
+                'recommendations': analysis.get('recommendations', ['Review and secure this file.']),
+                'confidence': analysis.get('confidence', 'unknown')
             }
-            risk_icon = risk_icons.get(risk_level, '⚪')
             
-            result = f"""
-{idx}. {risk_icon} {risk_level} RISK - {filename}
-   Confidence: {confidence.upper()}
-   Source: {'OCR Result' if is_ocr else 'Text/Markdown File'}
-   Path: {filepath}
-   Detected Categories: {categories}
-   
-   LLM Analysis:
-   {explanation}
-   
-   Preview:
-   {data['preview']}
-   
-{'-'*80}
-"""
-            self.results_text.insert("end", result)
+            converted_results.append(converted)
         
-        # Footer
-        footer = f"""
-{'='*80}
-RECOMMENDATIONS:
-1. Review all HIGH and CRITICAL risk documents immediately
-2. Delete or move sensitive files to secure storage
-3. Redact sensitive information if files must be kept
-4. Consider encrypting critical documents
-5. Update your privacy practices to prevent future leaks
-
-Note: Analysis performed by LLM. Manual review is recommended for accuracy.
-{'='*80}
-"""
-        self.results_text.insert("end", footer)
-        
-        # Show summary dialog
-        critical = sum(1 for _, d in results if d['analysis'].get('risk_level') == 'critical')
-        high = sum(1 for _, d in results if d['analysis'].get('risk_level') == 'high')
-        medium = sum(1 for _, d in results if d['analysis'].get('risk_level') == 'medium')
-        
-        messagebox.showwarning(
-            "Sensitive Documents Found",
-            f"🚨 Found {len(results)} potentially sensitive documents:\n\n"
-            f"🔴 Critical: {critical}\n"
-            f"🟠 High Risk: {high}\n"
-            f"🟡 Medium Risk: {medium}\n"
-            f"🟢 Low Risk: {len(results) - critical - high - medium}\n\n"
-            f"Please review the detailed results and take appropriate action."
-        )
+        # Show popup with results
+        self.show_results_popup(converted_results)
     
     def quick_query_database(self):
         """Quick search of vector database from main UI"""
