@@ -2,6 +2,7 @@ import os
 import logging
 from pathlib import Path
 from typing import List, Union
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(
@@ -115,29 +116,26 @@ if __name__ == "__main__":
     # Set logging level to INFO for demo
     logger.setLevel(logging.INFO)
     
-    # Example 1: Get all Python and text files in current directory
-    current_dir = os.getcwd()
+    # Get all files with specified extension
+    current_dir = "C:\\Users\\Kartikeya Srivastava\\Downloads"
     logger.info(f"Searching in: {current_dir}")
     
-    # Get Python files
-    py_files = get_files_by_extension(current_dir, ['.py'], recursive=False)
-    print(f"Found {len(py_files)} Python files:")
-    for file in py_files[:5]:  # Show first 5
+    # Get files
+    files = get_files_by_extension(current_dir, ['.md', '.txt', '.jpg', '.png', '.pdf'], recursive=False)
+    
+    # Save output to text file
+    output_folder = "temp"
+    os.makedirs(output_folder, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_filename = f"file_list.txt"
+    output_path = os.path.join(output_folder, output_filename)
+    
+    with open(output_path, 'w', encoding='utf-8') as f:
+        for file in files:
+            f.write(f"{file}\n")
+    
+    print(f"\nFound {len(files)} files:")
+    for file in files:
         print(f"  - {file}")
-    if len(py_files) > 5:
-        print(f"  ... and {len(py_files) - 5} more")
-    
-    print("\n" + "="*50 + "\n")
-    
-    # Example 2: Get files grouped by extension
-    grouped = get_files_by_extension_grouped(
-        current_dir, 
-        ['py', 'txt', 'md'],
-        recursive=False
-    )
-    
-    print("Files grouped by extension (non-recursive):")
-    for ext, files in grouped.items():
-        print(f"\n{ext}: {len(files)} file(s)")
-        for file in files[:3]:
-            print(f"  - {Path(file).name}")
+    print(f"\nOutput saved to: {output_path}")
