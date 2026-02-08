@@ -86,19 +86,19 @@ TRACE utilizes a modular, Python-based architecture focused on **performance**, 
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    CustomTkinter GUI                     │
-│              (ui.py - 1600+ lines)                       │
+│                    CustomTkinter GUI                    │
+│                         (ui.py)                         │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│              Privacy Scanner Pipeline                    │
-│                   (pipeline.py)                          │
+│              Privacy Scanner Pipeline                   │
+│                   (pipeline.py)                         │
 │  ┌──────────────────────────────────────────────────┐   │
-│  │ 1. Directory Scan → 2. OCR Images → 3. LLM      │   │
-│  │    Analysis → 4. Unload OCR → 5. Encode to DB   │   │
+│  │ 1. Directory Scan → 2. OCR Images → 3. LLM       │   │
+│  │    Analysis → 4. Unload OCR → 5. Encode to DB    │   │
 │  └──────────────────────────────────────────────────┘   │
-└────┬─────────────────┬─────────────────┬───────────────┘
+└────┬─────────────────┬─────────────────┬─────────────── ┘
      │                 │                 │
      ▼                 ▼                 ▼
 ┌──────────┐   ┌──────────────┐   ┌─────────────────┐
