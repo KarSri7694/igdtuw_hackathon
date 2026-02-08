@@ -23,8 +23,27 @@ ctk.set_default_color_theme("blue")
 class PrivacyScannerApp:
     def __init__(self):
         self.app = ctk.CTk()
-        self.app.geometry("2560x1440")
+        self.app.geometry("1920x1080")
         self.app.title("TRACE: Privacy Scanner - Local Intelligence")
+        
+        # Color scheme - Dark Theme
+        self.colors = {
+            'primary': '#14b8a6',      # Teal
+            'primary_dark': '#0d9488',
+            'secondary': '#06b6d4',    # Cyan
+            'secondary_dark': '#0891b2',
+            'success': '#10b981',      # Green
+            'success_dark': '#059669',
+            'danger': '#ef4444',       # Red
+            'danger_dark': '#dc2626',
+            'warning': '#f59e0b',      # Orange
+            'background': '#0f172a',   # Very dark slate
+            'card': '#1e293b',         # Dark slate
+            'card_hover': '#334155',   # Slate
+            'text': '#f1f5f9',         # Light slate
+            'text_muted': '#94a3b8',   # Muted slate
+            'border': '#475569'        # Border slate
+        }
         
         # Scanner instance
         self.scanner = PrivacyScanner()
@@ -41,117 +60,213 @@ class PrivacyScannerApp:
     
     def setup_ui(self):
         """Setup the user interface"""
-        # Main container
-        main_frame = ctk.CTkFrame(self.app)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
-        
-        # Header
-        header = ctk.CTkLabel(
-            main_frame,
-            text="🔍 Privacy Scanner - Digital Footprint Discovery",
-            font=("Arial", 28, "bold")
+        # Main container with gradient-like effect
+        main_frame = ctk.CTkFrame(
+            self.app,
+            fg_color="transparent"
         )
-        header.pack(pady=(10, 20))
+        main_frame.pack(fill="both", expand=True, padx=0, pady=0)
         
-        # Folder Selection Section
-        folder_frame = ctk.CTkFrame(main_frame)
-        folder_frame.pack(fill="x", padx=10, pady=10)
+        # Header Section with gradient background
+        header_frame = ctk.CTkFrame(
+            main_frame,
+            fg_color=["#0f172a", "#1e293b"],
+            corner_radius=0
+        )
+        header_frame.pack(fill="x", padx=0, pady=0)
+        
+        # Main title
+        title_label = ctk.CTkLabel(
+            header_frame,
+            text="🔍 TRACE",
+            font=("Segoe UI", 48, "bold"),
+            text_color="white"
+        )
+        title_label.pack(pady=(25, 5))
+        
+        # Subtitle
+        subtitle_label = ctk.CTkLabel(
+            header_frame,
+            text="Privacy Scanner - Digital Footprint Discovery",
+            font=("Segoe UI", 16),
+            text_color="#94a3b8"
+        )
+        subtitle_label.pack(pady=(0, 25))
+        
+        # Content container with padding
+        content_frame = ctk.CTkScrollableFrame(
+            main_frame,
+            fg_color="transparent"
+        )
+        content_frame.pack(fill="both", expand=True, padx=25, pady=25)
+        
+        # Folder Selection Section - Modern Card Style
+        folder_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color=self.colors['card'],
+            corner_radius=15,
+            border_width=1,
+            border_color=self.colors['border']
+        )
+        folder_frame.pack(fill="x", padx=5, pady=(0, 15))
         
         folder_label = ctk.CTkLabel(
             folder_frame,
-            text="Select Folder to Scan:",
-            font=("Arial", 14, "bold")
+            text="📁 Select Folder to Scan",
+            font=("Segoe UI", 16, "bold"),
+            text_color=self.colors['text']
         )
-        folder_label.pack(anchor="w", padx=10, pady=(10, 5))
+        folder_label.pack(anchor="w", padx=20, pady=(20, 10))
         
         # Folder path display and button
-        folder_input_frame = ctk.CTkFrame(folder_frame)
-        folder_input_frame.pack(fill="x", padx=10, pady=(0, 10))
+        folder_input_frame = ctk.CTkFrame(
+            folder_frame,
+            fg_color="transparent"
+        )
+        folder_input_frame.pack(fill="x", padx=20, pady=(0, 20))
         
         self.folder_entry = ctk.CTkEntry(
             folder_input_frame,
-            placeholder_text="No folder selected",
-            font=("Arial", 12),
-            state="readonly"
+            placeholder_text="No folder selected - Click Browse to choose",
+            font=("Segoe UI", 13),
+            state="readonly",
+            height=45,
+            corner_radius=10,
+            border_width=2,
+            border_color=self.colors['border']
         )
-        self.folder_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.folder_entry.pack(side="left", fill="x", expand=True, padx=(0, 15))
         
         browse_btn = ctk.CTkButton(
             folder_input_frame,
-            text="Browse",
+            text="📂 Browse",
             command=self.select_folder,
-            width=100,
-            font=("Arial", 12)
+            width=140,
+            height=45,
+            font=("Segoe UI", 13, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
         browse_btn.pack(side="right")
         
-        # Options Section
-        options_frame = ctk.CTkFrame(main_frame)
-        options_frame.pack(fill="x", padx=10, pady=10)
+        # Options Section - Card Style
+        options_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color=self.colors['card'],
+            corner_radius=15,
+            border_width=1,
+            border_color=self.colors['border']
+        )
+        options_frame.pack(fill="x", padx=5, pady=(0, 15))
         
         options_label = ctk.CTkLabel(
             options_frame,
-            text="Scan Options:",
-            font=("Arial", 14, "bold")
+            text="⚙️ Scan Options",
+            font=("Segoe UI", 16, "bold"),
+            text_color=self.colors['text']
         )
-        options_label.pack(anchor="w", padx=10, pady=(10, 5))
+        options_label.pack(anchor="w", padx=20, pady=(20, 15))
+        
+        # Checkboxes in a grid for better organization
+        checkbox_frame = ctk.CTkFrame(
+            options_frame,
+            fg_color="transparent"
+        )
+        checkbox_frame.pack(fill="x", padx=20, pady=(0, 15))
         
         # Recursive checkbox
         self.recursive_var = ctk.BooleanVar(value=False)
         recursive_check = ctk.CTkCheckBox(
-            options_frame,
-            text="Scan subdirectories recursively",
+            checkbox_frame,
+            text="🔄 Scan subdirectories recursively",
             variable=self.recursive_var,
-            font=("Arial", 12)
+            font=("Segoe UI", 13),
+            checkbox_width=24,
+            checkbox_height=24,
+            corner_radius=6,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
-        recursive_check.pack(anchor="w", padx=20, pady=(0, 5))
+        recursive_check.pack(anchor="w", pady=(0, 12))
         
         # Enable OCR checkbox
         self.enable_ocr_var = ctk.BooleanVar(value=True)
         ocr_check = ctk.CTkCheckBox(
-            options_frame,
-            text="Enable OCR on images (extract text from images)",
+            checkbox_frame,
+            text="👁️Enable OCR on images (extract text from images)",
             variable=self.enable_ocr_var,
-            font=("Arial", 12)
+            font=("Segoe UI", 13),
+            checkbox_width=24,
+            checkbox_height=24,
+            corner_radius=6,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
-        ocr_check.pack(anchor="w", padx=20, pady=(0, 5))
+        ocr_check.pack(anchor="w", pady=(0, 12))
         
         # Enable encoding checkbox
         self.enable_encoding_var = ctk.BooleanVar(value=True)
         encoding_check = ctk.CTkCheckBox(
-            options_frame,
-            text="Encode documents to vector database (enables semantic search)",
+            checkbox_frame,
+            text="💾 Encode documents to vector database (enables semantic search)",
             variable=self.enable_encoding_var,
-            font=("Arial", 12)
+            font=("Segoe UI", 13),
+            checkbox_width=24,
+            checkbox_height=24,
+            corner_radius=6,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
-        encoding_check.pack(anchor="w", padx=20, pady=(0, 5))
+        encoding_check.pack(anchor="w", pady=(0, 12))
         
         # Auto-detect sensitive files checkbox
         self.auto_detect_sensitive_var = ctk.BooleanVar(value=True)
         auto_detect_check = ctk.CTkCheckBox(
-            options_frame,
-            text="Auto-detect and show sensitive files after encoding",
+            checkbox_frame,
+            text="🔍 Auto-detect and show sensitive files after encoding",
             variable=self.auto_detect_sensitive_var,
-            font=("Arial", 12)
+            font=("Segoe UI", 13),
+            checkbox_width=24,
+            checkbox_height=24,
+            corner_radius=6,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
-        auto_detect_check.pack(anchor="w", padx=20, pady=(0, 10))
+        auto_detect_check.pack(anchor="w", pady=(0, 0))
+        
+        # Configuration section
+        config_container = ctk.CTkFrame(
+            options_frame,
+            fg_color="transparent"
+        )
+        config_container.pack(fill="x", padx=20, pady=(15, 0))
         
         # LLM Server URL
-        llm_url_frame = ctk.CTkFrame(options_frame)
-        llm_url_frame.pack(fill="x", padx=10, pady=(0, 10))
+        llm_url_frame = ctk.CTkFrame(
+            config_container,
+            fg_color="transparent"
+        )
+        llm_url_frame.pack(fill="x", pady=(0, 12))
         
         llm_label = ctk.CTkLabel(
             llm_url_frame,
-            text="LLM Server URL:",
-            font=("Arial", 12)
+            text="🤖 LLM Server:",
+            font=("Segoe UI", 13, "bold"),
+            width=130,
+            anchor="w"
         )
-        llm_label.pack(side="left", padx=(10, 10))
+        llm_label.pack(side="left", padx=(0, 10))
         
         self.llm_url_entry = ctk.CTkEntry(
             llm_url_frame,
             placeholder_text="http://localhost:8080",
-            font=("Arial", 12),
-            width=300
+            font=("Segoe UI", 12),
+            width=320,
+            height=38,
+            corner_radius=8,
+            border_width=2,
+            border_color=self.colors['border']
         )
         self.llm_url_entry.insert(0, "http://localhost:8080")
         self.llm_url_entry.pack(side="left", padx=(0, 10))
@@ -159,29 +274,42 @@ class PrivacyScannerApp:
         # Test Connection Button
         test_btn = ctk.CTkButton(
             llm_url_frame,
-            text="Test Connection",
+            text="✓ Test",
             command=self.test_llm_connection,
-            width=130,
-            font=("Arial", 11)
+            width=110,
+            height=38,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=8,
+            fg_color=self.colors['success'],
+            hover_color=self.colors['success_dark']
         )
-        test_btn.pack(side="left", padx=(0, 10))
+        test_btn.pack(side="left")
         
         # Output folder option
-        output_folder_frame = ctk.CTkFrame(options_frame)
-        output_folder_frame.pack(fill="x", padx=10, pady=(0, 5))
+        output_folder_frame = ctk.CTkFrame(
+            config_container,
+            fg_color="transparent"
+        )
+        output_folder_frame.pack(fill="x", pady=(0, 12))
         
         output_label = ctk.CTkLabel(
             output_folder_frame,
-            text="Output Folder:",
-            font=("Arial", 12)
+            text="📄 Output:",
+            font=("Segoe UI", 13, "bold"),
+            width=130,
+            anchor="w"
         )
-        output_label.pack(side="left", padx=(10, 10))
+        output_label.pack(side="left", padx=(0, 10))
         
         self.output_folder_entry = ctk.CTkEntry(
             output_folder_frame,
             placeholder_text="ocr_result",
-            font=("Arial", 12),
-            width=300
+            font=("Segoe UI", 12),
+            width=320,
+            height=38,
+            corner_radius=8,
+            border_width=2,
+            border_color=self.colors['border']
         )
         self.output_folder_entry.insert(0, "ocr_result")
         self.output_folder_entry.pack(side="left", padx=(0, 10))
@@ -189,98 +317,142 @@ class PrivacyScannerApp:
         # View Results Folder Button
         view_folder_btn = ctk.CTkButton(
             output_folder_frame,
-            text="Open Folder",
+            text="📂 Open",
             command=self.open_output_folder,
-            width=100,
-            font=("Arial", 11)
+            width=110,
+            height=38,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=8,
+            fg_color=self.colors['secondary'],
+            hover_color=self.colors['secondary_dark']
         )
-        view_folder_btn.pack(side="left", padx=(0, 10))
+        view_folder_btn.pack(side="left")
         
         # Database path option
-        db_path_frame = ctk.CTkFrame(options_frame)
-        db_path_frame.pack(fill="x", padx=10, pady=(0, 10))
+        db_path_frame = ctk.CTkFrame(
+            config_container,
+            fg_color="transparent"
+        )
+        db_path_frame.pack(fill="x", pady=(0, 20))
         
         db_label = ctk.CTkLabel(
             db_path_frame,
-            text="Vector DB Path:",
-            font=("Arial", 12)
+            text="💾 Vector DB:",
+            font=("Segoe UI", 13, "bold"),
+            width=130,
+            anchor="w"
         )
-        db_label.pack(side="left", padx=(10, 10))
+        db_label.pack(side="left", padx=(0, 10))
         
         self.db_path_entry = ctk.CTkEntry(
             db_path_frame,
             placeholder_text="./chroma_db",
-            font=("Arial", 12),
-            width=300
+            font=("Segoe UI", 12),
+            width=320,
+            height=38,
+            corner_radius=8,
+            border_width=2,
+            border_color=self.colors['border']
         )
         self.db_path_entry.insert(0, "./chroma_db")
         self.db_path_entry.pack(side="left", padx=(0, 10))
         
-        # Scan Buttons Frame
-        scan_buttons_frame = ctk.CTkFrame(main_frame)
-        scan_buttons_frame.pack(fill="x", padx=10, pady=10)
+        # Scan Buttons Section - Prominent and Eye-catching
+        scan_buttons_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color="transparent"
+        )
+        scan_buttons_frame.pack(fill="x", padx=5, pady=(0, 15))
         
         self.scan_btn = ctk.CTkButton(
             scan_buttons_frame,
             text="🚀 Start Privacy Scan",
             command=self.start_scan,
-            font=("Arial", 16, "bold"),
-            height=50,
-            fg_color="#2B7A0B",
-            hover_color="#1F5A08"
+            font=("Segoe UI", 18, "bold"),
+            height=60,
+            corner_radius=12,
+            fg_color=self.colors['success'],
+            hover_color=self.colors['success_dark'],
+            border_width=0
         )
-        self.scan_btn.pack(side="left", fill="x", expand=True, padx=(0, 5))
+        self.scan_btn.pack(side="left", fill="x", expand=True, padx=(0, 10))
         
         self.stop_btn = ctk.CTkButton(
             scan_buttons_frame,
             text="⏹ Stop Scan",
             command=self.stop_scan,
-            font=("Arial", 16, "bold"),
-            height=50,
-            width=150,
-            fg_color="#8B0000",
-            hover_color="#660000",
+            font=("Segoe UI", 16, "bold"),
+            height=60,
+            width=180,
+            corner_radius=12,
+            fg_color=self.colors['danger'],
+            hover_color=self.colors['danger_dark'],
             state="disabled"
         )
-        self.stop_btn.pack(side="left", padx=(5, 0))
+        self.stop_btn.pack(side="left")
         
-        # Progress Section
-        progress_frame = ctk.CTkFrame(main_frame)
-        progress_frame.pack(fill="x", padx=10, pady=10)
+        # Progress Section - Modern Card
+        progress_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color=self.colors['card'],
+            corner_radius=15,
+            border_width=1,
+            border_color=self.colors['border']
+        )
+        progress_frame.pack(fill="x", padx=5, pady=(0, 15))
         
         self.progress_label = ctk.CTkLabel(
             progress_frame,
             text="Ready to scan",
-            font=("Arial", 12)
+            font=("Segoe UI", 13),
+            text_color=self.colors['text']
         )
-        self.progress_label.pack(pady=(10, 5))
+        self.progress_label.pack(pady=(20, 12))
         
-        self.progress_bar = ctk.CTkProgressBar(progress_frame)
-        self.progress_bar.pack(fill="x", padx=10, pady=(0, 10))
+        self.progress_bar = ctk.CTkProgressBar(
+            progress_frame,
+            height=20,
+            corner_radius=10,
+            progress_color=self.colors['primary']
+        )
+        self.progress_bar.pack(fill="x", padx=20, pady=(0, 20))
         self.progress_bar.set(0)
         
-        # Quick Query Section
-        query_frame = ctk.CTkFrame(main_frame)
-        query_frame.pack(fill="x", padx=10, pady=10)
+        # Quick Query Section - Card Style
+        query_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color=self.colors['card'],
+            corner_radius=15,
+            border_width=1,
+            border_color=self.colors['border']
+        )
+        query_frame.pack(fill="x", padx=5, pady=(0, 15))
         
         query_label = ctk.CTkLabel(
             query_frame,
-            text="Quick Query Database:",
-            font=("Arial", 14, "bold")
+            text="🔍 Quick Query Database",
+            font=("Segoe UI", 16, "bold"),
+            text_color=self.colors['text']
         )
-        query_label.pack(anchor="w", padx=10, pady=(10, 5))
+        query_label.pack(anchor="w", padx=20, pady=(20, 15))
         
         # Query input row
-        query_input_frame = ctk.CTkFrame(query_frame)
-        query_input_frame.pack(fill="x", padx=10, pady=(0, 10))
+        query_input_frame = ctk.CTkFrame(
+            query_frame,
+            fg_color="transparent"
+        )
+        query_input_frame.pack(fill="x", padx=20, pady=(0, 20))
         
         self.query_entry = ctk.CTkEntry(
             query_input_frame,
             placeholder_text="Enter search query (e.g., personal information, passwords, financial data...)",
-            font=("Arial", 12),
-            height=35
+            font=("Segoe UI", 13),
+            height=45,
+            corner_radius=10,
+            border_width=2,
+            border_color=self.colors['border']
         )
-        self.query_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.query_entry.pack(side="left", fill="x", expand=True, padx=(0, 15))
         
         # Bind Enter key to search
         self.query_entry.bind("<Return>", lambda e: self.quick_query_database())
@@ -289,136 +461,208 @@ class PrivacyScannerApp:
         results_label = ctk.CTkLabel(
             query_input_frame,
             text="Results:",
-            font=("Arial", 11)
+            font=("Segoe UI", 12),
+            text_color=self.colors['text_muted']
         )
-        results_label.pack(side="left", padx=(0, 5))
+        results_label.pack(side="left", padx=(0, 8))
         
         self.n_results_var = ctk.StringVar(value="5")
         n_results_entry = ctk.CTkEntry(
             query_input_frame,
             textvariable=self.n_results_var,
-            width=50,
-            font=("Arial", 11)
+            width=60,
+            height=45,
+            font=("Segoe UI", 12),
+            corner_radius=8,
+            border_width=2,
+            border_color=self.colors['border'],
+            justify="center"
         )
-        n_results_entry.pack(side="left", padx=(0, 10))
+        n_results_entry.pack(side="left", padx=(0, 15))
         
         self.quick_search_btn = ctk.CTkButton(
             query_input_frame,
             text="🔍 Search",
             command=self.quick_query_database,
-            width=120,
-            font=("Arial", 12, "bold"),
-            fg_color="#1a5490",
-            hover_color="#0f3b6b"
+            width=140,
+            height=45,
+            font=("Segoe UI", 13, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
         self.quick_search_btn.pack(side="left")
         
-        # Results Section
-        results_label = ctk.CTkLabel(
-            main_frame,
-            text="Scan Results:",
-            font=("Arial", 14, "bold")
+        # Results Section - Card Style
+        results_container = ctk.CTkFrame(
+            content_frame,
+            fg_color=self.colors['card'],
+            corner_radius=15,
+            border_width=1,
+            border_color=self.colors['border']
         )
-        results_label.pack(anchor="w", padx=10, pady=(10, 5))
+        results_container.pack(fill="both", expand=True, padx=5, pady=(0, 15))
+        
+        results_label = ctk.CTkLabel(
+            results_container,
+            text="📄 Scan Results",
+            font=("Segoe UI", 16, "bold"),
+            text_color=self.colors['text']
+        )
+        results_label.pack(anchor="w", padx=20, pady=(20, 15))
         
         # Results text box
         self.results_text = ctk.CTkTextbox(
-            main_frame,
-            font=("Consolas", 11),
-            wrap="word"
+            results_container,
+            font=("Consolas", 12),
+            wrap="word",
+            corner_radius=10,
+            border_width=1,
+            border_color=self.colors['border']
         )
-        self.results_text.pack(fill="both", expand=True, padx=10, pady=(0, 10))
+        self.results_text.pack(fill="both", expand=True, padx=20, pady=(0, 20))
         
-        # Action Buttons Row
-        action_frame = ctk.CTkFrame(main_frame)
-        action_frame.pack(fill="x", padx=10, pady=(0, 10))
+        # Action Buttons Row - Modern Grid Layout
+        action_container = ctk.CTkFrame(
+            content_frame,
+            fg_color="transparent"
+        )
+        action_container.pack(fill="x", padx=5, pady=(0, 20))
+        
+        # Top row - Basic actions
+        action_row1 = ctk.CTkFrame(
+            action_container,
+            fg_color="transparent"
+        )
+        action_row1.pack(fill="x", pady=(0, 12))
         
         clear_btn = ctk.CTkButton(
-            action_frame,
-            text="Clear Results",
+            action_row1,
+            text="🗑️ Clear Results",
             command=self.clear_results,
-            width=150,
-            font=("Arial", 12)
+            width=180,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['card'],
+            hover_color=self.colors['card_hover'],
+            border_width=2,
+            border_color=self.colors['border']
         )
-        clear_btn.pack(side="left", padx=5)
+        clear_btn.pack(side="left", padx=(0, 10))
         
         export_btn = ctk.CTkButton(
-            action_frame,
-            text="Export Results",
+            action_row1,
+            text="📤 Export Results",
             command=self.export_results,
-            width=150,
-            font=("Arial", 12)
+            width=180,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['secondary'],
+            hover_color=self.colors['secondary_dark']
         )
-        export_btn.pack(side="left", padx=5)
+        export_btn.pack(side="left", padx=(0, 10))
         
         view_ocr_btn = ctk.CTkButton(
-            action_frame,
-            text="View OCR Files",
+            action_row1,
+            text="📂 View OCR Files",
             command=self.open_output_folder,
-            width=150,
-            font=("Arial", 12)
+            width=180,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
-        view_ocr_btn.pack(side="left", padx=5)
+        view_ocr_btn.pack(side="left")
         
-        # Encoding buttons (right side)
-        encoding_action_frame = ctk.CTkFrame(main_frame)
-        encoding_action_frame.pack(fill="x", padx=10, pady=(5, 10))
-        
-        encoding_label = ctk.CTkLabel(
-            encoding_action_frame,
-            text="Vector Database Actions:",
-            font=("Arial", 12, "bold")
+        # Vector Database Actions - Bottom row
+        action_row2 = ctk.CTkFrame(
+            action_container,
+            fg_color="transparent"
         )
-        encoding_label.pack(side="left", padx=5)
+        action_row2.pack(fill="x")
+        
+        db_actions_label = ctk.CTkLabel(
+            action_row2,
+            text="💾 Vector Database:",
+            font=("Segoe UI", 13, "bold"),
+            text_color=self.colors['text']
+        )
+        db_actions_label.pack(side="left", padx=(0, 15))
         
         self.encode_btn = ctk.CTkButton(
-            encoding_action_frame,
-            text="📚 Encode Documents",
+            action_row2,
+            text="📚 Encode Docs",
             command=self.encode_documents,
-            width=180,
-            font=("Arial", 12),
-            fg_color="#1a5490",
-            hover_color="#0f3b6b"
+            width=160,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
-        self.encode_btn.pack(side="left", padx=5)
+        self.encode_btn.pack(side="left", padx=(0, 10))
         
         search_btn = ctk.CTkButton(
-            encoding_action_frame,
-            text="🔍 Search Database",
+            action_row2,
+            text="🔎 Search DB",
             command=self.search_database,
-            width=180,
-            font=("Arial", 12)
+            width=160,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['secondary'],
+            hover_color=self.colors['secondary_dark']
         )
-        search_btn.pack(side="left", padx=5)
+        search_btn.pack(side="left", padx=(0, 10))
         
         stats_btn = ctk.CTkButton(
-            encoding_action_frame,
-            text="📊 Database Stats",
+            action_row2,
+            text="📊 DB Stats",
             command=self.show_db_stats,
-            width=150,
-            font=("Arial", 12)
+            width=140,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['card'],
+            hover_color=self.colors['card_hover'],
+            border_width=2,
+            border_color=self.colors['border']
         )
-        stats_btn.pack(side="left", padx=5)
+        stats_btn.pack(side="left", padx=(0, 10))
         
         find_sensitive_btn = ctk.CTkButton(
-            encoding_action_frame,
-            text="🚨 Find Sensitive Docs",
+            action_row2,
+            text="🚨 Find Sensitive",
             command=self.find_sensitive_documents,
-            width=180,
-            font=("Arial", 12),
-            fg_color="#8B0000",
-            hover_color="#660000"
+            width=170,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['danger'],
+            hover_color=self.colors['danger_dark']
         )
-        find_sensitive_btn.pack(side="left", padx=5)
+        find_sensitive_btn.pack(side="left")
         
-        # Status bar
-        self.status_label = ctk.CTkLabel(
+        # Status bar - Modern footer
+        status_frame = ctk.CTkFrame(
             self.app,
-            text="Ready",
-            font=("Arial", 10),
+            fg_color=self.colors['card'],
+            height=40,
+            corner_radius=0
+        )
+        status_frame.pack(side="bottom", fill="x", padx=0, pady=0)
+        
+        self.status_label = ctk.CTkLabel(
+            status_frame,
+            text="✓ Ready",
+            font=("Segoe UI", 11),
+            text_color=self.colors['text_muted'],
             anchor="w"
         )
-        self.status_label.pack(side="bottom", fill="x", padx=20, pady=(0, 5))
+        self.status_label.pack(side="left", padx=25, pady=10)
     
     def test_llm_connection(self):
         """Test connection to LLM server"""
@@ -703,138 +947,216 @@ Risk Distribution:
     
     
     def show_results_popup(self, sensitive_files):
-        """Show scan results in a popup window with file actions"""
+        """Show scan results in a modern popup window with file actions"""
         # Create popup window
         popup = ctk.CTkToplevel(self.app)
         popup.title(f"Sensitive Files Found - {len(sensitive_files)} file(s)")
-        popup.geometry("1400x800")
+        popup.geometry("1500x900")
         
         # Make it modal
         popup.grab_set()
         popup.focus()
         
-        # Header
-        header_frame = ctk.CTkFrame(popup, fg_color="#8B0000")
+        # Header with gradient effect
+        header_frame = ctk.CTkFrame(
+            popup,
+            fg_color=self.colors['danger'],
+            corner_radius=0
+        )
         header_frame.pack(fill="x", padx=0, pady=0)
         
         header_label = ctk.CTkLabel(
             header_frame,
             text=f"🚨 {len(sensitive_files)} SENSITIVE FILE(S) DETECTED",
-            font=("Arial", 20, "bold"),
+            font=("Segoe UI", 24, "bold"),
             text_color="white"
         )
-        header_label.pack(pady=15)
+        header_label.pack(pady=(25, 10))
+        
+        subheader_label = ctk.CTkLabel(
+            header_frame,
+            text="Review and take action on files containing sensitive information",
+            font=("Segoe UI", 13),
+            text_color="#fecaca"
+        )
+        subheader_label.pack(pady=(0, 25))
         
         # Main content frame with scrollbar
-        main_frame = ctk.CTkScrollableFrame(popup)
-        main_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        main_frame = ctk.CTkScrollableFrame(
+            popup,
+            fg_color="transparent"
+        )
+        main_frame.pack(fill="both", expand=True, padx=25, pady=25)
         
         # Display each sensitive file
         for idx, result in enumerate(sensitive_files, 1):
             self.create_file_card(main_frame, result, idx)
         
-        # Close button at bottom
-        close_btn = ctk.CTkButton(
+        # Bottom action bar
+        bottom_frame = ctk.CTkFrame(
             popup,
-            text="Close",
+            fg_color=self.colors['card'],
+            corner_radius=0,
+            height=70
+        )
+        bottom_frame.pack(fill="x", padx=0, pady=0)
+        
+        close_btn = ctk.CTkButton(
+            bottom_frame,
+            text="✕ Close",
             command=popup.destroy,
             width=200,
-            height=40,
-            font=("Arial", 14, "bold")
+            height=45,
+            font=("Segoe UI", 14, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
-        close_btn.pack(pady=10)
+        close_btn.pack(pady=12)
     
     def create_file_card(self, parent, result, idx):
-        """Create a card for each sensitive file with path, recommendations, and actions"""
+        """Create a modern card for each sensitive file with path, recommendations, and actions"""
         filename = result.get('filename', 'Unknown')
         file_path = result.get('file_path') or result.get('image_path', 'N/A')
         risk_level = result.get('risk_level', 'low').upper()
         categories = result.get('detected_categories', [])
         recommendations = result.get('recommendations', [])
         
-        # Risk color
+        # Risk colors - modern palette
         risk_colors = {
-            'CRITICAL': '#8B0000',
-            'HIGH': '#FF6347',
-            'MEDIUM': '#FFA500',
-            'LOW': '#90EE90'
+            'CRITICAL': '#dc2626',  # Red
+            'HIGH': '#f97316',      # Orange
+            'MEDIUM': '#f59e0b',    # Amber
+            'LOW': '#84cc16'        # Lime
         }
-        risk_color = risk_colors.get(risk_level, '#808080')
+        risk_color = risk_colors.get(risk_level, '#6b7280')
         
-        # Card frame
-        card_frame = ctk.CTkFrame(parent, border_width=2, border_color=risk_color)
-        card_frame.pack(fill="x", padx=10, pady=10)
+        # Risk icons
+        risk_icons = {
+            'CRITICAL': '🔴',
+            'HIGH': '🟠',
+            'MEDIUM': '🟡',
+            'LOW': '🟢'
+        }
+        risk_icon = risk_icons.get(risk_level, '⚫')
         
-        # Top section with risk indicator
-        top_frame = ctk.CTkFrame(card_frame, fg_color=risk_color)
-        top_frame.pack(fill="x", padx=0, pady=0)
+        # Main card frame with shadow effect
+        card_frame = ctk.CTkFrame(
+            parent,
+            fg_color=self.colors['card'],
+            corner_radius=12,
+            border_width=2,
+            border_color=risk_color
+        )
+        card_frame.pack(fill="x", padx=5, pady=(0, 20))
+        
+        # Top section with risk indicator - colored header
+        top_frame = ctk.CTkFrame(
+            card_frame,
+            fg_color=risk_color,
+            corner_radius=10
+        )
+        top_frame.pack(fill="x", padx=3, pady=3)
         
         risk_label = ctk.CTkLabel(
             top_frame,
-            text=f"{idx}. {risk_level} RISK - {filename}",
-            font=("Arial", 14, "bold"),
+            text=f"{risk_icon} File #{idx} - {risk_level} RISK",
+            font=("Segoe UI", 15, "bold"),
             text_color="white"
         )
-        risk_label.pack(pady=10, padx=10, anchor="w")
+        risk_label.pack(side="left", pady=12, padx=15)
         
-        # Content frame with 3 columns
-        content_frame = ctk.CTkFrame(card_frame)
-        content_frame.pack(fill="both", expand=True, padx=15, pady=15)
+        filename_label = ctk.CTkLabel(
+            top_frame,
+            text=filename,
+            font=("Segoe UI", 14),
+            text_color="#ffffff"
+        )
+        filename_label.pack(side="left", pady=12, padx=(0, 15))
+        
+        # Content frame with 3 columns - improved layout
+        content_frame = ctk.CTkFrame(
+            card_frame,
+            fg_color="transparent"
+        )
+        content_frame.pack(fill="both", expand=True, padx=20, pady=20)
+        
+        # Configure grid weights for responsive layout
+        content_frame.grid_columnconfigure(0, weight=1)
+        content_frame.grid_columnconfigure(1, weight=2)
+        content_frame.grid_columnconfigure(2, weight=1)
         
         # Left column - File Path
-        left_frame = ctk.CTkFrame(content_frame)
-        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
+        left_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color="transparent"
+        )
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 15))
         
         path_label = ctk.CTkLabel(
             left_frame,
-            text="📁 File Location:",
-            font=("Arial", 12, "bold")
+            text="📁 File Location",
+            font=("Segoe UI", 13, "bold"),
+            text_color=self.colors['text']
         )
-        path_label.pack(anchor="w", pady=(5, 5))
+        path_label.pack(anchor="w", pady=(0, 10))
         
         path_text = ctk.CTkTextbox(
             left_frame,
-            height=80,
-            font=("Consolas", 10),
-            wrap="word"
+            height=100,
+            font=("Consolas", 11),
+            wrap="word",
+            corner_radius=8,
+            border_width=1,
+            border_color=self.colors['border']
         )
-        path_text.pack(fill="both", expand=True, pady=(0, 5))
+        path_text.pack(fill="both", expand=True, pady=(0, 10))
         path_text.insert("1.0", file_path)
         path_text.configure(state="disabled")
         
         if categories:
             cat_label = ctk.CTkLabel(
                 left_frame,
-                text="🏷️ Detected Categories:",
-                font=("Arial", 11, "bold")
+                text="🏷️ Categories",
+                font=("Segoe UI", 12, "bold"),
+                text_color=self.colors['text']
             )
-            cat_label.pack(anchor="w", pady=(10, 5))
+            cat_label.pack(anchor="w", pady=(10, 8))
             
             cat_text = ctk.CTkTextbox(
                 left_frame,
-                height=60,
-                font=("Arial", 10)
+                height=80,
+                font=("Segoe UI", 11),
+                corner_radius=8,
+                border_width=1,
+                border_color=self.colors['border']
             )
             cat_text.pack(fill="both", expand=True)
             cat_text.insert("1.0", "\n".join([f"• {cat}" for cat in categories]))
             cat_text.configure(state="disabled")
         
         # Middle column - Recommendations
-        middle_frame = ctk.CTkFrame(content_frame)
-        middle_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
+        middle_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color="transparent"
+        )
+        middle_frame.grid(row=0, column=1, sticky="nsew", padx=(0, 15))
         
         rec_label = ctk.CTkLabel(
             middle_frame,
-            text="⚠️ RECOMMENDED ACTIONS:",
-            font=("Arial", 12, "bold"),
-            text_color="#FF6347"
+            text="⚠️ RECOMMENDED ACTIONS",
+            font=("Segoe UI", 13, "bold"),
+            text_color=risk_color
         )
-        rec_label.pack(anchor="w", pady=(5, 10))
+        rec_label.pack(anchor="w", pady=(0, 10))
         
         rec_text = ctk.CTkTextbox(
             middle_frame,
-            font=("Arial", 11),
-            wrap="word"
+            font=("Segoe UI", 12),
+            wrap="word",
+            corner_radius=8,
+            border_width=1,
+            border_color=self.colors['border']
         )
         rec_text.pack(fill="both", expand=True)
         
@@ -846,58 +1168,59 @@ Risk Distribution:
         
         rec_text.configure(state="disabled")
         
-        # Right column - Action Buttons
-        right_frame = ctk.CTkFrame(content_frame)
+        # Right column - Action Buttons (modern vertical layout)
+        right_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color="transparent"
+        )
         right_frame.grid(row=0, column=2, sticky="nsew")
         
         actions_label = ctk.CTkLabel(
             right_frame,
-            text="🛠️ Actions:",
-            font=("Arial", 12, "bold")
+            text="🎯 Quick Actions",
+            font=("Segoe UI", 13, "bold"),
+            text_color=self.colors['text']
         )
-        actions_label.pack(pady=(5, 15))
+        actions_label.pack(anchor="w", pady=(0, 15))
         
         # Delete button
         delete_btn = ctk.CTkButton(
             right_frame,
             text="🗑️ Delete File",
             command=lambda: self.delete_sensitive_file(file_path, card_frame),
-            width=180,
-            height=50,
-            font=("Arial", 13, "bold"),
-            fg_color="#8B0000",
-            hover_color="#660000"
+            font=("Segoe UI", 12, "bold"),
+            height=45,
+            corner_radius=10,
+            fg_color=self.colors['danger'],
+            hover_color=self.colors['danger_dark']
         )
-        delete_btn.pack(pady=10)
+        delete_btn.pack(fill="x", pady=(0, 12))
         
-        # Vault button (dummy)
+        # Vault button (coming soon)
         vault_btn = ctk.CTkButton(
             right_frame,
-            text="🔒 Store in Vault",
+            text="🔒 Secure Vault",
             command=lambda: self.store_in_vault(file_path, filename),
-            width=180,
-            height=50,
-            font=("Arial", 13, "bold"),
-            fg_color="#1a5490",
-            hover_color="#0f3b6b"
+            font=("Segoe UI", 12, "bold"),
+            height=45,
+            corner_radius=10,
+            fg_color=self.colors['secondary'],
+            hover_color=self.colors['secondary_dark']
         )
-        vault_btn.pack(pady=10)
+        vault_btn.pack(fill="x", pady=(0, 12))
         
-        # Open file location button
+        # Open location button
         open_btn = ctk.CTkButton(
             right_frame,
-            text="📂 Open Location",
+            text="📂 Open Folder",
             command=lambda: self.open_file_location(file_path),
-            width=180,
-            height=40,
-            font=("Arial", 11)
+            font=("Segoe UI", 12, "bold"),
+            height=45,
+            corner_radius=10,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
         )
-        open_btn.pack(pady=10)
-        
-        # Configure grid weights
-        content_frame.grid_columnconfigure(0, weight=1)
-        content_frame.grid_columnconfigure(1, weight=2)
-        content_frame.grid_columnconfigure(2, weight=1)
+        open_btn.pack(fill="x")
     
     def delete_sensitive_file(self, file_path, card_frame):
         """Delete a sensitive file after confirmation"""
