@@ -462,49 +462,39 @@ class PrivacyScanner:
             self.unload_ocr()
             return results
         
-        # Step 4: Process each image
+        # Step 4: Process each image (OCR only - analysis happens later if enabled)
         total_images = len(image_files)
         for idx, image_path in enumerate(image_files, 1):
             try:
                 progress = 10 + int((idx / total_images) * 80)
                 
-                # Run OCR
+                # Run OCR to extract text
                 if progress_callback:
                     progress_callback(
                         progress,
                         100,
-                        f"Processing image {idx}/{total_images}: {Path(image_path).name}"
+                        f"Extracting text from image {idx}/{total_images}: {Path(image_path).name}"
                     )
                 
                 ocr_text, ocr_file = self.run_ocr_on_image(image_path)
                 
-                # Analyze with LLM
-                if progress_callback:
-                    progress_callback(
-                        progress + 1,
-                        100,
-                        f"Analyzing image {idx}/{total_images} for privacy..."
-                    )
-                
-                analysis = self.analyze_text_for_privacy(
-                    ocr_text,
-                    filename=Path(image_path).name
-                )
-                analysis['image_path'] = image_path
-                analysis['ocr_file'] = ocr_file
-                
-                results.append(analysis)
+                # Store basic info without LLM analysis (analysis done later via auto-detect if enabled)
+                results.append({
+                    "filename": Path(image_path).name,
+                    "image_path": image_path,
+                    "ocr_file": ocr_file,
+                    "file_type": "image",
+                    "ocr_text_length": len(ocr_text) if ocr_text else 0,
+                    "timestamp": datetime.now().isoformat()
+                })
                 
             except Exception as e:
                 logger.error(f"Error processing {image_path}: {e}")
                 results.append({
                     "filename": Path(image_path).name,
                     "image_path": image_path,
-                    "contains_sensitive_info": False,
-                    "risk_level": "error",
-                    "detected_categories": [],
-                    "specific_findings": [f"Processing error: {str(e)}"],
-                    "recommendations": ["Manual review required"],
+                    "file_type": "image",
+                    "ocr_error": str(e),
                     "timestamp": datetime.now().isoformat()
                 })
         
@@ -515,38 +505,34 @@ class PrivacyScanner:
         self.unload_ocr()
         logger.info("OCR model unloaded, memory freed")
         
-        # Step 6: Analyze text/markdown files (only if encoding is disabled)
-        # If encoding is enabled, text files will be encoded and analyzed later via "Find Sensitive Docs"
-        if not self.enable_encoding:
-            if progress_callback:
-                progress_callback(78, 100, "Scanning for text/markdown files...")
+        # Step 6: Analyze text/markdown files (ALWAYS - these should only be analyzed once)
+        if progress_callback:
+            progress_callback(78, 100, "Scanning for text/markdown files...")
+        
+        text_files = self.get_text_files(directory, recursive)
+        
+        if text_files:
+            logger.info(f"Analyzing {len(text_files)} text/markdown file(s)...")
+            total_text_files = len(text_files)
             
-            text_files = self.get_text_files(directory, recursive)
-            
-            if text_files:
-                logger.info(f"Analyzing {len(text_files)} text/markdown file(s)...")
-                total_text_files = len(text_files)
-                
-                for idx, text_file in enumerate(text_files, 1):
-                    try:
-                        progress = 78 + int((idx / total_text_files) * 10)
-                        if progress_callback:
-                            progress_callback(
-                                progress,
-                                100,
-                                f"Analyzing text file {idx}/{total_text_files}: {Path(text_file).name}"
-                            )
+            for idx, text_file in enumerate(text_files, 1):
+                try:
+                    progress = 78 + int((idx / total_text_files) * 10)
+                    if progress_callback:
+                        progress_callback(
+                            progress,
+                            100,
+                            f"Analyzing text file {idx}/{total_text_files}: {Path(text_file).name}"
+                        )
+                    
+                    analysis = self.analyze_text_file(text_file)
+                    if analysis:
+                        results.append(analysis)
                         
-                        analysis = self.analyze_text_file(text_file)
-                        if analysis:
-                            results.append(analysis)
-                            
-                    except Exception as e:
-                        logger.error(f"Error processing {text_file}: {e}")
-            else:
-                logger.info("No text/markdown files found")
+                except Exception as e:
+                    logger.error(f"Error processing {text_file}: {e}")
         else:
-            logger.info("Encoding enabled - text files will be encoded for later analysis via 'Find Sensitive Docs'")
+            logger.info("No text/markdown files found")
         
         # Step 7: Encode OCR results and text files to vector database
         encoding_stats = None

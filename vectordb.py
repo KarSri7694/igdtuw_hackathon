@@ -2,10 +2,11 @@ from typing import Dict, Any
 import chromadb
 from chromadb import Documents, EmbeddingFunction, Embeddings
 from chromadb.utils.embedding_functions import register_embedding_function
+import os
 
 # Global variables for lazy loading
 _model = None
-_token = ""
+_token = os.environ.get("HF_TOKEN")
 
 
 def get_embedding_model():

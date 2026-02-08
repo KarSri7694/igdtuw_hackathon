@@ -4,15 +4,20 @@ import threading
 import os
 import sys
 from pathlib import Path
+from integrity_checker import check_integrity
+
+# Check integrity before initializing the app
+check_integrity()
 
 # Try to import pipeline components
 try:
     from pipeline import PrivacyScanner
     from llm import LlamaCppClient
     from encode_documents import DocumentEncoder
+    from file_encryptor import FileEncryptor
 except ImportError as e:
     print(f"Error importing modules: {e}")
-    print("Please ensure all required files are present: pipeline.py, llm.py, glm_ocr.py, get_files.py, encode_documents.py")
+    print("Please ensure all required files are present: pipeline.py, llm.py, glm_ocr.py, get_files.py, encode_documents.py, file_encryptor.py")
     sys.exit(1)
 
 # Set appearance
@@ -55,6 +60,17 @@ class PrivacyScannerApp:
         self.encode_thread = None
         self.stop_requested = False
         
+        # Settings storage
+        self.llm_url = "http://localhost:8080"
+        self.output_folder = "ocr_result"
+        self.db_path = "./chroma_db"
+        
+        # Store scan results for merging with OCR analysis
+        self.last_scan_results = []
+        
+        # Initialize file encryptor
+        self.file_encryptor = FileEncryptor()
+        
         # Setup UI
         self.setup_ui()
     
@@ -74,6 +90,20 @@ class PrivacyScannerApp:
             corner_radius=0
         )
         header_frame.pack(fill="x", padx=0, pady=0)
+        
+        # Settings button in top right
+        settings_btn = ctk.CTkButton(
+            header_frame,
+            text="Settings",
+            command=self.open_settings,
+            width=100,
+            height=40,
+            font=("Segoe UI", 13, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['card'],
+            hover_color=self.colors['card_hover']
+        )
+        settings_btn.place(relx=0.98, rely=0.5, anchor="e")
         
         # Main title
         title_label = ctk.CTkLabel(
@@ -150,7 +180,7 @@ class PrivacyScannerApp:
         )
         browse_btn.pack(side="right")
         
-        # Options Section - Card Style
+        # Options Section - Card Style with two columns
         options_frame = ctk.CTkFrame(
             content_frame,
             fg_color=self.colors['card'],
@@ -168,12 +198,19 @@ class PrivacyScannerApp:
         )
         options_label.pack(anchor="w", padx=20, pady=(20, 15))
         
-        # Checkboxes in a grid for better organization
-        checkbox_frame = ctk.CTkFrame(
+        # Two-column layout container
+        two_column_frame = ctk.CTkFrame(
             options_frame,
             fg_color="transparent"
         )
-        checkbox_frame.pack(fill="x", padx=20, pady=(0, 15))
+        two_column_frame.pack(fill="x", padx=20, pady=(0, 20))
+        
+        # Left column: Checkboxes
+        checkbox_frame = ctk.CTkFrame(
+            two_column_frame,
+            fg_color="transparent"
+        )
+        checkbox_frame.pack(side="left", fill="both", expand=True, padx=(0, 20))
         
         # Recursive checkbox
         self.recursive_var = ctk.BooleanVar(value=False)
@@ -224,7 +261,7 @@ class PrivacyScannerApp:
         self.auto_detect_sensitive_var = ctk.BooleanVar(value=True)
         auto_detect_check = ctk.CTkCheckBox(
             checkbox_frame,
-            text="🔍 Auto-detect and show sensitive files after encoding",
+            text="🔍 Auto-analyze images for sensitive content (text files always analyzed)",
             variable=self.auto_detect_sensitive_var,
             font=("Segoe UI", 13),
             checkbox_width=24,
@@ -235,161 +272,40 @@ class PrivacyScannerApp:
         )
         auto_detect_check.pack(anchor="w", pady=(0, 0))
         
-        # Configuration section
-        config_container = ctk.CTkFrame(
-            options_frame,
-            fg_color="transparent"
-        )
-        config_container.pack(fill="x", padx=20, pady=(15, 0))
-        
-        # LLM Server URL
-        llm_url_frame = ctk.CTkFrame(
-            config_container,
-            fg_color="transparent"
-        )
-        llm_url_frame.pack(fill="x", pady=(0, 12))
-        
-        llm_label = ctk.CTkLabel(
-            llm_url_frame,
-            text="🤖 LLM Server:",
-            font=("Segoe UI", 13, "bold"),
-            width=130,
-            anchor="w"
-        )
-        llm_label.pack(side="left", padx=(0, 10))
-        
-        self.llm_url_entry = ctk.CTkEntry(
-            llm_url_frame,
-            placeholder_text="http://localhost:8080",
-            font=("Segoe UI", 12),
-            width=320,
-            height=38,
-            corner_radius=8,
-            border_width=2,
-            border_color=self.colors['border']
-        )
-        self.llm_url_entry.insert(0, "http://localhost:8080")
-        self.llm_url_entry.pack(side="left", padx=(0, 10))
-        
-        # Test Connection Button
-        test_btn = ctk.CTkButton(
-            llm_url_frame,
-            text="✓ Test",
-            command=self.test_llm_connection,
-            width=110,
-            height=38,
-            font=("Segoe UI", 12, "bold"),
-            corner_radius=8,
-            fg_color=self.colors['success'],
-            hover_color=self.colors['success_dark']
-        )
-        test_btn.pack(side="left")
-        
-        # Output folder option
-        output_folder_frame = ctk.CTkFrame(
-            config_container,
-            fg_color="transparent"
-        )
-        output_folder_frame.pack(fill="x", pady=(0, 12))
-        
-        output_label = ctk.CTkLabel(
-            output_folder_frame,
-            text="📄 Output:",
-            font=("Segoe UI", 13, "bold"),
-            width=130,
-            anchor="w"
-        )
-        output_label.pack(side="left", padx=(0, 10))
-        
-        self.output_folder_entry = ctk.CTkEntry(
-            output_folder_frame,
-            placeholder_text="ocr_result",
-            font=("Segoe UI", 12),
-            width=320,
-            height=38,
-            corner_radius=8,
-            border_width=2,
-            border_color=self.colors['border']
-        )
-        self.output_folder_entry.insert(0, "ocr_result")
-        self.output_folder_entry.pack(side="left", padx=(0, 10))
-        
-        # View Results Folder Button
-        view_folder_btn = ctk.CTkButton(
-            output_folder_frame,
-            text="📂 Open",
-            command=self.open_output_folder,
-            width=110,
-            height=38,
-            font=("Segoe UI", 12, "bold"),
-            corner_radius=8,
-            fg_color=self.colors['secondary'],
-            hover_color=self.colors['secondary_dark']
-        )
-        view_folder_btn.pack(side="left")
-        
-        # Database path option
-        db_path_frame = ctk.CTkFrame(
-            config_container,
-            fg_color="transparent"
-        )
-        db_path_frame.pack(fill="x", pady=(0, 20))
-        
-        db_label = ctk.CTkLabel(
-            db_path_frame,
-            text="💾 Vector DB:",
-            font=("Segoe UI", 13, "bold"),
-            width=130,
-            anchor="w"
-        )
-        db_label.pack(side="left", padx=(0, 10))
-        
-        self.db_path_entry = ctk.CTkEntry(
-            db_path_frame,
-            placeholder_text="./chroma_db",
-            font=("Segoe UI", 12),
-            width=320,
-            height=38,
-            corner_radius=8,
-            border_width=2,
-            border_color=self.colors['border']
-        )
-        self.db_path_entry.insert(0, "./chroma_db")
-        self.db_path_entry.pack(side="left", padx=(0, 10))
-        
-        # Scan Buttons Section - Prominent and Eye-catching
+        # Right column: Scan Buttons
         scan_buttons_frame = ctk.CTkFrame(
-            content_frame,
+            two_column_frame,
             fg_color="transparent"
         )
-        scan_buttons_frame.pack(fill="x", padx=5, pady=(0, 15))
+        scan_buttons_frame.pack(side="right", fill="y")
         
         self.scan_btn = ctk.CTkButton(
             scan_buttons_frame,
             text="🚀 Start Privacy Scan",
             command=self.start_scan,
-            font=("Segoe UI", 18, "bold"),
-            height=60,
+            font=("Segoe UI", 16, "bold"),
+            width=280,
+            height=55,
             corner_radius=12,
             fg_color=self.colors['success'],
             hover_color=self.colors['success_dark'],
             border_width=0
         )
-        self.scan_btn.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        self.scan_btn.pack(pady=(0, 12))
         
         self.stop_btn = ctk.CTkButton(
             scan_buttons_frame,
             text="⏹ Stop Scan",
             command=self.stop_scan,
-            font=("Segoe UI", 16, "bold"),
-            height=60,
-            width=180,
+            font=("Segoe UI", 14, "bold"),
+            width=280,
+            height=50,
             corner_radius=12,
             fg_color=self.colors['danger'],
             hover_color=self.colors['danger_dark'],
             state="disabled"
         )
-        self.stop_btn.pack(side="left")
+        self.stop_btn.pack()
         
         # Progress Section - Modern Card
         progress_frame = ctk.CTkFrame(
@@ -644,7 +560,20 @@ class PrivacyScannerApp:
             fg_color=self.colors['danger'],
             hover_color=self.colors['danger_dark']
         )
-        find_sensitive_btn.pack(side="left")
+        find_sensitive_btn.pack(side="left", padx=(0, 10))
+        
+        vault_btn = ctk.CTkButton(
+            action_row2,
+            text="🔐 Manage Vault",
+            command=self.manage_vault,
+            width=160,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['warning'],
+            hover_color="#d97706"
+        )
+        vault_btn.pack(side="left")
         
         # Status bar - Modern footer
         status_frame = ctk.CTkFrame(
@@ -664,9 +593,232 @@ class PrivacyScannerApp:
         )
         self.status_label.pack(side="left", padx=25, pady=10)
     
+    def open_settings(self):
+        """Open settings dialog"""
+        # Create settings window
+        settings_window = ctk.CTkToplevel(self.app)
+        settings_window.title("⚙️ Settings")
+        settings_window.geometry("700x500")
+        
+        # Make it modal
+        settings_window.grab_set()
+        settings_window.focus()
+        
+        # Header
+        header_frame = ctk.CTkFrame(
+            settings_window,
+            fg_color=self.colors['card'],
+            corner_radius=0
+        )
+        header_frame.pack(fill="x", padx=0, pady=0)
+        
+        header_label = ctk.CTkLabel(
+            header_frame,
+            text="⚙️ Application Settings",
+            font=("Segoe UI", 24, "bold"),
+            text_color=self.colors['text']
+        )
+        header_label.pack(pady=25)
+        
+        # Content frame
+        content_frame = ctk.CTkFrame(
+            settings_window,
+            fg_color="transparent"
+        )
+        content_frame.pack(fill="both", expand=True, padx=30, pady=30)
+        
+        # LLM Server URL
+        llm_label = ctk.CTkLabel(
+            content_frame,
+            text="🤖 LLM Server URL:",
+            font=("Segoe UI", 14, "bold"),
+            anchor="w"
+        )
+        llm_label.pack(anchor="w", pady=(0, 8))
+        
+        llm_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color="transparent"
+        )
+        llm_frame.pack(fill="x", pady=(0, 20))
+        
+        llm_url_entry = ctk.CTkEntry(
+            llm_frame,
+            placeholder_text="http://localhost:8080",
+            font=("Segoe UI", 12),
+            height=42,
+            corner_radius=8,
+            border_width=2,
+            border_color=self.colors['border']
+        )
+        llm_url_entry.insert(0, self.llm_url)
+        llm_url_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        test_btn = ctk.CTkButton(
+            llm_frame,
+            text="✓ Test",
+            command=lambda: self.test_llm_connection_settings(llm_url_entry.get()),
+            width=100,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=8,
+            fg_color=self.colors['success'],
+            hover_color=self.colors['success_dark']
+        )
+        test_btn.pack(side="left")
+        
+        # Output Folder
+        output_label = ctk.CTkLabel(
+            content_frame,
+            text="📄 Output Folder:",
+            font=("Segoe UI", 14, "bold"),
+            anchor="w"
+        )
+        output_label.pack(anchor="w", pady=(0, 8))
+        
+        output_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color="transparent"
+        )
+        output_frame.pack(fill="x", pady=(0, 20))
+        
+        output_folder_entry = ctk.CTkEntry(
+            output_frame,
+            placeholder_text="ocr_result",
+            font=("Segoe UI", 12),
+            height=42,
+            corner_radius=8,
+            border_width=2,
+            border_color=self.colors['border']
+        )
+        output_folder_entry.insert(0, self.output_folder)
+        output_folder_entry.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        open_btn = ctk.CTkButton(
+            output_frame,
+            text="📂 Open",
+            command=lambda: self.open_output_folder_settings(output_folder_entry.get()),
+            width=100,
+            height=42,
+            font=("Segoe UI", 12, "bold"),
+            corner_radius=8,
+            fg_color=self.colors['secondary'],
+            hover_color=self.colors['secondary_dark']
+        )
+        open_btn.pack(side="left")
+        
+        # Vector DB Path
+        db_label = ctk.CTkLabel(
+            content_frame,
+            text="💾 Vector Database Path:",
+            font=("Segoe UI", 14, "bold"),
+            anchor="w"
+        )
+        db_label.pack(anchor="w", pady=(0, 8))
+        
+        db_path_entry = ctk.CTkEntry(
+            content_frame,
+            placeholder_text="./chroma_db",
+            font=("Segoe UI", 12),
+            height=42,
+            corner_radius=8,
+            border_width=2,
+            border_color=self.colors['border']
+        )
+        db_path_entry.insert(0, self.db_path)
+        db_path_entry.pack(fill="x", pady=(0, 30))
+        
+        # Buttons
+        button_frame = ctk.CTkFrame(
+            content_frame,
+            fg_color="transparent"
+        )
+        button_frame.pack(fill="x")
+        
+        save_btn = ctk.CTkButton(
+            button_frame,
+            text="💾 Save Settings",
+            command=lambda: self.save_settings(
+                llm_url_entry.get(),
+                output_folder_entry.get(),
+                db_path_entry.get(),
+                settings_window
+            ),
+            height=50,
+            font=("Segoe UI", 14, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['primary'],
+            hover_color=self.colors['primary_dark']
+        )
+        save_btn.pack(side="left", fill="x", expand=True, padx=(0, 10))
+        
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            command=settings_window.destroy,
+            height=50,
+            width=150,
+            font=("Segoe UI", 14, "bold"),
+            corner_radius=10,
+            fg_color=self.colors['card'],
+            hover_color=self.colors['card_hover']
+        )
+        cancel_btn.pack(side="left")
+    
+    def save_settings(self, llm_url, output_folder, db_path, window):
+        """Save settings and close window"""
+        self.llm_url = llm_url.strip() if llm_url.strip() else "http://localhost:8080"
+        self.output_folder = output_folder.strip() if output_folder.strip() else "ocr_result"
+        self.db_path = db_path.strip() if db_path.strip() else "./chroma_db"
+        
+        messagebox.showinfo("Settings Saved", "Settings have been updated successfully!")
+        window.destroy()
+    
+    def test_llm_connection_settings(self, llm_url):
+        """Test connection to LLM server from settings dialog"""
+        if not llm_url:
+            llm_url = "http://localhost:8080"
+        
+        def test_connection():
+            try:
+                test_client = LlamaCppClient(base_url=llm_url)
+                if test_client.check_server_status():
+                    self.app.after(0, lambda: messagebox.showinfo(
+                        "Connection Successful",
+                        f"✅ LLM server is running at {llm_url}\n\nYou're ready to scan!"
+                    ))
+                else:
+                    self.app.after(0, lambda: messagebox.showerror(
+                        "Connection Failed",
+                        f"❌ Cannot connect to LLM server at {llm_url}\n\nPlease ensure llama.cpp server is running:\nllama-server -m models/your-model.gguf --port 8080"
+                    ))
+            except Exception as e:
+                self.app.after(0, lambda: messagebox.showerror(
+                    "Connection Error",
+                    f"Error testing connection:\n{str(e)}"
+                ))
+        
+        threading.Thread(target=test_connection, daemon=True).start()
+    
+    def open_output_folder_settings(self, output_folder):
+        """Open the output folder in file explorer from settings dialog"""
+        if not output_folder:
+            output_folder = "ocr_result"
+        
+        # Create folder if it doesn't exist
+        os.makedirs(output_folder, exist_ok=True)
+        
+        # Open in file explorer
+        abs_path = os.path.abspath(output_folder)
+        if os.name == 'nt':  # Windows
+            os.startfile(abs_path)
+        elif os.name == 'posix':  # macOS/Linux
+            import subprocess
+            subprocess.Popen(['xdg-open', abs_path])
+    
     def test_llm_connection(self):
         """Test connection to LLM server"""
-        llm_url = self.llm_url_entry.get().strip()
+        llm_url = self.llm_url
         if not llm_url:
             llm_url = "http://localhost:8080"
         
@@ -698,7 +850,7 @@ class PrivacyScannerApp:
     
     def open_output_folder(self):
         """Open the output folder in file explorer"""
-        output_folder = self.output_folder_entry.get().strip()
+        output_folder = self.output_folder
         if not output_folder:
             output_folder = "ocr_result"
         
@@ -748,15 +900,15 @@ class PrivacyScannerApp:
         self.clear_results()
         
         # Update scanner with LLM URL and output folder
-        llm_url = self.llm_url_entry.get().strip()
+        llm_url = self.llm_url
         if not llm_url:
             llm_url = "http://localhost:8080"
         
-        output_folder = self.output_folder_entry.get().strip()
+        output_folder = self.output_folder
         if not output_folder:
             output_folder = "ocr_result"
         
-        db_path = self.db_path_entry.get().strip()
+        db_path = self.db_path
         if not db_path:
             db_path = "./chroma_db"
         
@@ -800,13 +952,18 @@ class PrivacyScannerApp:
                 progress_callback=progress_wrapper
             )
             
+            # Store results for later merging with OCR analysis
+            self.last_scan_results = results
+            
             # Display results
             if not self.stop_requested:
                 self.app.after(0, lambda: self.display_results(results))
-                # Show popup for sensitive files
-                sensitive_files = [r for r in results if r.get('risk_level') in ['critical', 'high', 'medium']]
-                if sensitive_files:
-                    self.app.after(0, lambda: self.show_results_popup(sensitive_files))
+                # Don't show popup yet if auto-detect is enabled - wait for OCR analysis to merge
+                if not (self.enable_encoding_var.get() and self.auto_detect_sensitive_var.get()):
+                    # Only show popup if not auto-detecting (otherwise will show combined results later)
+                    sensitive_files = [r for r in results if r.get('risk_level') in ['critical', 'high', 'medium']]
+                    if sensitive_files:
+                        self.app.after(0, lambda: self.show_results_popup(sensitive_files))
 
             else:
                 self.app.after(0, lambda: self.display_partial_results(results))
@@ -837,13 +994,14 @@ class PrivacyScannerApp:
         
         # Summary
         total = len(results)
-        images = sum(1 for r in results if r.get('file_type') != 'text/markdown')
+        images = sum(1 for r in results if r.get('file_type') == 'image' or (r.get('file_type') != 'text/markdown' and r.get('image_path')))
         text_files = sum(1 for r in results if r.get('file_type') == 'text/markdown')
         critical = sum(1 for r in results if r.get('risk_level') == 'critical')
         high = sum(1 for r in results if r.get('risk_level') == 'high')
         medium = sum(1 for r in results if r.get('risk_level') == 'medium')
         low = sum(1 for r in results if r.get('risk_level') == 'low')
         none_found = sum(1 for r in results if r.get('risk_level') == 'none')
+        pending_analysis = sum(1 for r in results if r.get('file_type') == 'image' and not r.get('risk_level'))
         
         summary = f"""
 {'='*80}
@@ -859,17 +1017,35 @@ Risk Distribution:
   Medium Risk: {medium}
   Low Risk: {low}
   No Risk: {none_found}
+  Pending Analysis: {pending_analysis} (images awaiting LLM analysis)
 {'='*80}
 
 """
         self.results_text.insert("end", summary)
         
+        # Note about pending analysis
+        if pending_analysis > 0:
+            note = f"""
+📝 Note: {pending_analysis} image(s) have been OCR'd but not yet analyzed for sensitive content.
+   Enable 'Auto-analyze images for sensitive content' checkbox to analyze them automatically,
+   or use 'Find Sensitive Docs' button to analyze manually.
+
+"""
+            self.results_text.insert("end", note)
+        
         # Detailed results
+        displayed_idx = 0
         for idx, result in enumerate(results, 1):
-            risk = result.get('risk_level', 'unknown').upper()
+            risk = result.get('risk_level', 'pending').upper()
             filename = result.get('filename', 'Unknown')
             contains_sensitive = result.get('contains_sensitive_info', False)
             file_type = result.get('file_type', 'image')
+            
+            # Skip displaying images that haven't been analyzed yet (they'll show in pending count)
+            if file_type == 'image' and risk == 'PENDING':
+                continue
+            
+            displayed_idx += 1
             
             # Color code based on risk
             risk_emoji = {
@@ -878,6 +1054,7 @@ Risk Distribution:
                 'MEDIUM': '🟡',
                 'LOW': '🟢',
                 'NONE': '✅',
+                'PENDING': '⏳',
                 'UNKNOWN': '❓',
                 'ERROR': '❌'
             }.get(risk, '❓')
@@ -885,10 +1062,12 @@ Risk Distribution:
             # File type indicator
             type_emoji = '📄' if file_type == 'text/markdown' else '🖼️'
             
-            detail = f"\n{idx}. {risk_emoji} {type_emoji} {filename}\n"
+            detail = f"\n{displayed_idx}. {risk_emoji} {type_emoji} {filename}\n"
             detail += f"   Risk Level: {risk}\n"
             detail += f"   Type: {file_type.title()}\n"
-            detail += f"   Contains Sensitive Info: {'Yes' if contains_sensitive else 'No'}\n"
+            
+            if risk != 'PENDING':
+                detail += f"   Contains Sensitive Info: {'Yes' if contains_sensitive else 'No'}\n"
             
             if result.get('detected_categories'):
                 detail += f"   Categories: {', '.join(result.get('detected_categories'))}\n"
@@ -908,6 +1087,11 @@ Risk Distribution:
             # Display file path (handle both image_path and file_path)
             file_path = result.get('file_path') or result.get('image_path', 'N/A')
             detail += f"   File: {file_path}\n"
+            
+            # Show OCR info for images
+            if file_type == 'image' and result.get('ocr_file'):
+                detail += f"   OCR Result: {result.get('ocr_file')}\n"
+            
             detail += "-" * 80 + "\n"
             
             self.results_text.insert("end", detail)
@@ -1256,11 +1440,422 @@ Risk Distribution:
                 )
     
     def store_in_vault(self, file_path, filename):
-        """Store file in encrypted vault (dummy implementation)"""
-        messagebox.showinfo(
-            "Store in Vault",
-            f"📦 Vault Feature (Coming Soon)\n\nThis will encrypt and securely store:\n{filename}\n\nFeatures:\n• AES-256 encryption\n• Password protected vault\n• Secure deletion of original\n• Easy file retrieval"
+        """Encrypt and store file in secure vault"""
+        if not os.path.exists(file_path):
+            messagebox.showerror("File Not Found", f"File not found:\n{file_path}")
+            return
+        
+        # Show password dialog
+        password_dialog = ctk.CTkToplevel(self.app)
+        password_dialog.title("Encrypt File")
+        password_dialog.geometry("500x350")
+        password_dialog.grab_set()
+        password_dialog.focus()
+        
+        # Header
+        header_label = ctk.CTkLabel(
+            password_dialog,
+            text="🔒 Encrypt File",
+            font=("Segoe UI", 20, "bold")
         )
+        header_label.pack(pady=(20, 10))
+        
+        info_label = ctk.CTkLabel(
+            password_dialog,
+            text=f"Encrypting: {filename}",
+            font=("Segoe UI", 12)
+        )
+        info_label.pack(pady=(0, 20))
+        
+        # Password fields
+        pass_label = ctk.CTkLabel(
+            password_dialog,
+            text="Enter encryption password (min 8 characters):",
+            font=("Segoe UI", 12)
+        )
+        pass_label.pack(pady=(10, 5))
+        
+        password_entry = ctk.CTkEntry(
+            password_dialog,
+            show="•",
+            width=300,
+            height=40,
+            font=("Segoe UI", 12)
+        )
+        password_entry.pack(pady=(0, 15))
+        password_entry.focus()
+        
+        confirm_label = ctk.CTkLabel(
+            password_dialog,
+            text="Confirm password:",
+            font=("Segoe UI", 12)
+        )
+        confirm_label.pack(pady=(10, 5))
+        
+        confirm_entry = ctk.CTkEntry(
+            password_dialog,
+            show="•",
+            width=300,
+            height=40,
+            font=("Segoe UI", 12)
+        )
+        confirm_entry.pack(pady=(0, 15))
+        
+        # Delete original checkbox
+        delete_var = ctk.BooleanVar(value=True)
+        delete_check = ctk.CTkCheckBox(
+            password_dialog,
+            text="Securely delete original file after encryption",
+            variable=delete_var,
+            font=("Segoe UI", 11)
+        )
+        delete_check.pack(pady=10)
+        
+        def do_encryption():
+            password = password_entry.get()
+            confirm = confirm_entry.get()
+            
+            if not password:
+                messagebox.showwarning("Empty Password", "Please enter a password!")
+                return
+            
+            if len(password) < 8:
+                messagebox.showwarning("Weak Password", "Password must be at least 8 characters!")
+                return
+            
+            if password != confirm:
+                messagebox.showerror("Password Mismatch", "Passwords do not match!")
+                return
+            
+            password_dialog.destroy()
+            
+            # Perform encryption
+            success, encrypted_path, message = self.file_encryptor.encrypt_file(
+                file_path,
+                password,
+                delete_original=delete_var.get()
+            )
+            
+            if success:
+                messagebox.showinfo(
+                    "Encryption Successful",
+                    f"✅ {message}\n\nEncrypted file saved to:\n{encrypted_path}\n\nKeep your password safe!"
+                )
+            else:
+                messagebox.showerror("Encryption Failed", f"❌ {message}")
+        
+        # Buttons
+        button_frame = ctk.CTkFrame(password_dialog, fg_color="transparent")
+        button_frame.pack(pady=20)
+        
+        encrypt_btn = ctk.CTkButton(
+            button_frame,
+            text="🔒 Encrypt",
+            command=do_encryption,
+            width=140,
+            height=40,
+            font=("Segoe UI", 13, "bold"),
+            fg_color=self.colors['success'],
+            hover_color=self.colors['success_dark']
+        )
+        encrypt_btn.pack(side="left", padx=5)
+        
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            command=password_dialog.destroy,
+            width=140,
+            height=40,
+            font=("Segoe UI", 13, "bold"),
+            fg_color=self.colors['card'],
+            hover_color=self.colors['card_hover']
+        )
+        cancel_btn.pack(side="left", padx=5)
+        
+        # Bind Enter key
+        password_dialog.bind('<Return>', lambda e: do_encryption())
+    
+    def manage_vault(self):
+        """Manage encrypted vault - view and decrypt files"""
+        # Get vault stats
+        stats = self.file_encryptor.get_vault_stats()
+        encrypted_files = self.file_encryptor.list_encrypted_files()
+        
+        # Create vault management window
+        vault_window = ctk.CTkToplevel(self.app)
+        vault_window.title("🔐 Secure Vault Manager")
+        vault_window.geometry("900x700")
+        vault_window.grab_set()
+        vault_window.focus()
+        
+        # Header
+        header_frame = ctk.CTkFrame(
+            vault_window,
+            fg_color=self.colors['warning'],
+            corner_radius=0
+        )
+        header_frame.pack(fill="x", padx=0, pady=0)
+        
+        header_label = ctk.CTkLabel(
+            header_frame,
+            text="🔐 Secure Vault Manager",
+            font=("Segoe UI", 24, "bold"),
+            text_color="white"
+        )
+        header_label.pack(pady=20)
+        
+        # Stats section
+        stats_frame = ctk.CTkFrame(
+            vault_window,
+            fg_color=self.colors['card'],
+            corner_radius=10,
+            border_width=1,
+            border_color=self.colors['border']
+        )
+        stats_frame.pack(fill="x", padx=20, pady=20)
+        
+        stats_text = f"""📊 Vault Statistics
+        
+📁 Vault Location: {stats['vault_path']}
+🔒 Encrypted Files: {stats['total_files']}
+💾 Total Size: {stats['total_size_mb']} MB
+"""
+        
+        stats_label = ctk.CTkLabel(
+            stats_frame,
+            text=stats_text,
+            font=("Segoe UI", 12),
+            justify="left"
+        )
+        stats_label.pack(padx=20, pady=15, anchor="w")
+        
+        # Files list section
+        list_label = ctk.CTkLabel(
+            vault_window,
+            text="🔒 Encrypted Files",
+            font=("Segoe UI", 16, "bold")
+        )
+        list_label.pack(anchor="w", padx=20, pady=(10, 10))
+        
+        # Scrollable frame for files
+        files_frame = ctk.CTkScrollableFrame(
+            vault_window,
+            fg_color="transparent"
+        )
+        files_frame.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        
+        if not encrypted_files:
+            no_files_label = ctk.CTkLabel(
+                files_frame,
+                text="📭 No encrypted files in vault\\n\\nEncrypt sensitive files using the '🔒 Secure Vault' button in scan results.",
+                font=("Segoe UI", 13),
+                text_color=self.colors['text_muted']
+            )
+            no_files_label.pack(pady=50)
+        else:
+            # Display each encrypted file
+            for idx, file_path in enumerate(encrypted_files, 1):
+                filename = os.path.basename(file_path)
+                file_size = os.path.getsize(file_path)
+                file_size_mb = round(file_size / (1024 * 1024), 2)
+                
+                # File card
+                file_card = ctk.CTkFrame(
+                    files_frame,
+                    fg_color=self.colors['card'],
+                    corner_radius=10,
+                    border_width=1,
+                    border_color=self.colors['border']
+                )
+                file_card.pack(fill="x", pady=5)
+                
+                # File info
+                info_frame = ctk.CTkFrame(file_card, fg_color="transparent")
+                info_frame.pack(side="left", fill="both", expand=True, padx=15, pady=10)
+                
+                name_label = ctk.CTkLabel(
+                    info_frame,
+                    text=f"🔒 {filename}",
+                    font=("Segoe UI", 12, "bold"),
+                    anchor="w"
+                )
+                name_label.pack(anchor="w")
+                
+                size_label = ctk.CTkLabel(
+                    info_frame,
+                    text=f"Size: {file_size_mb} MB",
+                    font=("Segoe UI", 10),
+                    text_color=self.colors['text_muted'],
+                    anchor="w"
+                )
+                size_label.pack(anchor="w")
+                
+                # Action buttons
+                button_frame = ctk.CTkFrame(file_card, fg_color="transparent")
+                button_frame.pack(side="right", padx=15, pady=10)
+                
+                decrypt_btn = ctk.CTkButton(
+                    button_frame,
+                    text="🔓 Decrypt",
+                    command=lambda fp=file_path, fn=filename: self.decrypt_file_from_vault(fp, fn),
+                    width=120,
+                    height=35,
+                    font=("Segoe UI", 11, "bold"),
+                    fg_color=self.colors['success'],
+                    hover_color=self.colors['success_dark']
+                )
+                decrypt_btn.pack(side="left", padx=5)
+                
+                delete_btn = ctk.CTkButton(
+                    button_frame,
+                    text="🗑️",
+                    command=lambda fp=file_path, fc=file_card: self.delete_from_vault(fp, fc),
+                    width=50,
+                    height=35,
+                    font=("Segoe UI", 11),
+                    fg_color=self.colors['danger'],
+                    hover_color=self.colors['danger_dark']
+                )
+                delete_btn.pack(side="left")
+        
+        # Close button
+        close_btn = ctk.CTkButton(
+            vault_window,
+            text="Close",
+            command=vault_window.destroy,
+            width=150,
+            height=40,
+            font=("Segoe UI", 13, "bold"),
+            fg_color=self.colors['card'],
+            hover_color=self.colors['card_hover']
+        )
+        close_btn.pack(pady=(0, 20))
+    
+    def decrypt_file_from_vault(self, encrypted_path, filename):
+        """Decrypt a file from the vault"""
+        # Password dialog
+        password_dialog = ctk.CTkToplevel(self.app)
+        password_dialog.title("Decrypt File")
+        password_dialog.geometry("500x300")
+        password_dialog.grab_set()
+        password_dialog.focus()
+        
+        # Header
+        header_label = ctk.CTkLabel(
+            password_dialog,
+            text="🔓 Decrypt File",
+            font=("Segoe UI", 20, "bold")
+        )
+        header_label.pack(pady=(20, 10))
+        
+        info_label = ctk.CTkLabel(
+            password_dialog,
+            text=f"Decrypting: {filename}",
+            font=("Segoe UI", 12)
+        )
+        info_label.pack(pady=(0, 20))
+        
+        # Password field
+        pass_label = ctk.CTkLabel(
+            password_dialog,
+            text="Enter decryption password:",
+            font=("Segoe UI", 12)
+        )
+        pass_label.pack(pady=(10, 5))
+        
+        password_entry = ctk.CTkEntry(
+            password_dialog,
+            show="•",
+            width=300,
+            height=40,
+            font=("Segoe UI", 12)
+        )
+        password_entry.pack(pady=(0, 15))
+        password_entry.focus()
+        
+        # Delete encrypted file checkbox
+        delete_var = ctk.BooleanVar(value=False)
+        delete_check = ctk.CTkCheckBox(
+            password_dialog,
+            text="Delete encrypted file after decryption",
+            variable=delete_var,
+            font=("Segoe UI", 11)
+        )
+        delete_check.pack(pady=10)
+        
+        def do_decryption():
+            password = password_entry.get()
+            
+            if not password:
+                messagebox.showwarning("Empty Password", "Please enter the decryption password!")
+                return
+            
+            password_dialog.destroy()
+            
+            # Perform decryption
+            success, decrypted_path, message = self.file_encryptor.decrypt_file(
+                encrypted_path,
+                password,
+                delete_encrypted=delete_var.get()
+            )
+            
+            if success:
+                messagebox.showinfo(
+                    "Decryption Successful",
+                    f"✅ {message}\\n\\nDecrypted file saved to:\\n{decrypted_path}"
+                )
+                # Refresh vault window if still open
+            else:
+                messagebox.showerror("Decryption Failed", f"❌ {message}")
+        
+        # Buttons
+        button_frame = ctk.CTkFrame(password_dialog, fg_color="transparent")
+        button_frame.pack(pady=20)
+        
+        decrypt_btn = ctk.CTkButton(
+            button_frame,
+            text="🔓 Decrypt",
+            command=do_decryption,
+            width=140,
+            height=40,
+            font=("Segoe UI", 13, "bold"),
+            fg_color=self.colors['success'],
+            hover_color=self.colors['success_dark']
+        )
+        decrypt_btn.pack(side="left", padx=5)
+        
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            command=password_dialog.destroy,
+            width=140,
+            height=40,
+            font=("Segoe UI", 13, "bold"),
+            fg_color=self.colors['card'],
+            hover_color=self.colors['card_hover']
+        )
+        cancel_btn.pack(side="left", padx=5)
+        
+        # Bind Enter key
+        password_dialog.bind('<Return>', lambda e: do_decryption())
+    
+    def delete_from_vault(self, file_path, card_frame):
+        """Delete an encrypted file from vault"""
+        filename = os.path.basename(file_path)
+        
+        response = messagebox.askyesno(
+            "Delete Encrypted File",
+            f"Are you sure you want to delete this encrypted file?\\n\\n{filename}\\n\\nThis action cannot be undone!",
+            icon="warning"
+        )
+        
+        if response:
+            try:
+                os.remove(file_path)
+                card_frame.destroy()
+                messagebox.showinfo("Deleted", f"Encrypted file deleted:\\n{filename}")
+            except Exception as e:
+                messagebox.showerror("Delete Error", f"Failed to delete file:\\n{str(e)}")
     
     def open_file_location(self, file_path):
         """Open the folder containing the file"""
@@ -1346,11 +1941,11 @@ Risk Distribution:
             return
         
         # Get configuration
-        db_path = self.db_path_entry.get().strip()
+        db_path = self.db_path
         if not db_path:
             db_path = "./chroma_db"
         
-        output_folder = self.output_folder_entry.get().strip()
+        output_folder = self.output_folder
         if not output_folder:
             output_folder = "ocr_result"
         
@@ -1453,7 +2048,7 @@ Total documents in database: {encoder.collection.count()}
     
     def search_database(self):
         """Search the vector database"""
-        db_path = self.db_path_entry.get().strip()
+        db_path = self.db_path
         if not db_path:
             db_path = "./chroma_db"
         
@@ -1469,6 +2064,10 @@ Total documents in database: {encoder.collection.count()}
         search_window = ctk.CTkToplevel(self.app)
         search_window.title("Search Vector Database")
         search_window.geometry("800x600")
+        
+        # Make it modal
+        search_window.grab_set()
+        search_window.focus()
         
         # Search input
         input_frame = ctk.CTkFrame(search_window)
@@ -1504,6 +2103,15 @@ Total documents in database: {encoder.collection.count()}
             font=("Arial", 12)
         )
         n_results_entry.pack(side="left", padx=(0, 10))
+        
+        # Results display - create BEFORE the function that uses it
+        search_results = ctk.CTkTextbox(
+            search_window,
+            font=("Consolas", 11),
+            wrap="word"
+        )
+        search_results.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        search_results.insert("1.0", "Enter a query and click Search to find relevant documents...")
         
         def perform_search():
             query = search_entry.get().strip()
@@ -1545,19 +2153,10 @@ Total documents in database: {encoder.collection.count()}
             font=("Arial", 12, "bold")
         )
         search_btn.pack(side="left")
-        
-        # Results display
-        search_results = ctk.CTkTextbox(
-            search_window,
-            font=("Consolas", 11),
-            wrap="word"
-        )
-        search_results.pack(fill="both", expand=True, padx=20, pady=(0, 20))
-        search_results.insert("1.0", "Enter a query and click Search to find relevant documents...")
     
     def show_db_stats(self):
         """Show database statistics"""
-        db_path = self.db_path_entry.get().strip()
+        db_path = self.db_path
         if not db_path:
             db_path = "./chroma_db"
         
@@ -1582,11 +2181,11 @@ Total documents in database: {encoder.collection.count()}
     def find_sensitive_documents(self):
         """Analyze documents with LLM to find sensitive/critical information (reads directly from files)"""
         # Check LLM server
-        llm_url = self.llm_url_entry.get().strip()
+        llm_url = self.llm_url
         if not llm_url:
             llm_url = "http://localhost:8080"
         
-        output_folder = self.output_folder_entry.get().strip()
+        output_folder = self.output_folder
         if not output_folder:
             output_folder = "ocr_result"
         
@@ -1613,10 +2212,10 @@ Total documents in database: {encoder.collection.count()}
                 self.app.after(0, lambda: self.progress_label.configure(text="Collecting files to analyze..."))
                 self.app.after(0, lambda: self.progress_bar.set(0.15))
                 
-                # Collect all files to analyze
+                # Collect OCR files to analyze (images only - text files already analyzed during scan)
                 all_files = []
                 
-                # Get OCR files
+                # Get OCR files from images only
                 if os.path.exists(output_folder):
                     for filename in os.listdir(output_folder):
                         if filename.endswith('.txt') and filename.startswith('ocr_'):
@@ -1624,23 +2223,8 @@ Total documents in database: {encoder.collection.count()}
                             if os.path.isfile(file_path):
                                 all_files.append((file_path, True))  # (path, is_ocr)
                 
-                # Get files from file lists (txt and md)
-                file_lists_folder = 'temp'
-                if os.path.exists(file_lists_folder):
-                    for list_filename in ['file_list_txt.txt', 'file_list_md.txt']:
-                        list_path = os.path.join(file_lists_folder, list_filename)
-                        if os.path.exists(list_path):
-                            try:
-                                with open(list_path, 'r', encoding='utf-8') as f:
-                                    for line in f:
-                                        line = line.strip()
-                                        # Skip headers and empty lines
-                                        if line and not line.startswith('File List') and not line.startswith('Directory') and not line.startswith('Timestamp') and not line.startswith('Total files') and not line.startswith('='):
-                                            if os.path.isfile(line):
-                                                all_files.append((line, False))  # (path, is_ocr)
-                            except Exception as e:
-                                import logging
-                                logging.warning(f"Failed to read {list_filename}: {e}")
+                # Note: We do NOT analyze txt/md files here as they are already analyzed during initial scan
+                # This prevents duplicate analysis of non-image text content
                 
                 if not all_files:
                     self.app.after(0, lambda: messagebox.showinfo(
@@ -1671,7 +2255,9 @@ Respond with a JSON object:
   "confidence": "high"/"medium"/"low",
   "categories": ["category1", "category2"],
   "risk_level": "critical"/"high"/"medium"/"low",
-  "explanation": "Brief explanation"
+  "explanation": "Brief explanation",
+  "specific_findings": ["finding1", "finding2"],
+  "recommendations": ["recommendation1", "recommendation2"]
 }"""
                 
                 sensitive_files = {}
@@ -1741,7 +2327,9 @@ Respond ONLY with the JSON object, no other text."""
                 # Display results
                 self.app.after(0, lambda: self.progress_bar.set(1.0))
                 self.app.after(0, lambda: self.progress_label.configure(text="Analysis complete!"))
-                self.app.after(0, lambda: self.display_sensitive_results(sorted_results))
+                
+                # Merge with stored scan results (text files)
+                self.app.after(0, lambda: self.display_combined_results(sorted_results))
                 
             except Exception as e:
                 self.app.after(0, lambda: messagebox.showerror(
@@ -1752,6 +2340,83 @@ Respond ONLY with the JSON object, no other text."""
                 self.app.after(0, lambda: self.progress_bar.set(0))
         
         threading.Thread(target=analyze_sensitive, daemon=True).start()
+    
+    def display_combined_results(self, ocr_analysis_results):
+        """Display combined results from text file analysis and OCR analysis in one popup"""
+        # Convert OCR analysis results to scan format
+        ocr_results = []
+        for filepath, data in ocr_analysis_results:
+            analysis = data['analysis']
+            
+            # Get recommendations from analysis, fallback to generic if not provided
+            recommendations = analysis.get('recommendations', [])
+            if not recommendations:
+                recommendations = ['Review and secure this file.']
+            
+            # Get specific findings from analysis
+            specific_findings = analysis.get('specific_findings', [])
+            if not specific_findings:
+                specific_findings = [analysis.get('explanation', 'Sensitive content detected')]
+            
+            ocr_results.append({
+                'filename': data['filename'],
+                'file_path': filepath,
+                'file_type': 'image',
+                'risk_level': analysis.get('risk_level', 'low'),
+                'contains_sensitive_info': True,
+                'detected_categories': analysis.get('categories', []),
+                'specific_findings': specific_findings,
+                'recommendations': recommendations,
+                'confidence': analysis.get('confidence', 'unknown')
+            })
+        
+        # Get sensitive text files from stored scan results
+        text_sensitive_files = [r for r in self.last_scan_results if r.get('risk_level') in ['critical', 'high', 'medium']]
+        
+        # Combine both
+        all_sensitive_files = text_sensitive_files + ocr_results
+        
+        # Update main text area
+        self.results_text.delete("1.0", "end")
+        
+        if not all_sensitive_files:
+            self.results_text.insert("1.0", 
+                "✅ No sensitive documents found!\n\n"
+                "Your scanned documents appear to be safe.\n\n"
+                "Note: All documents have been analyzed for sensitive information.\n"
+                "Always manually review critical documents for complete security."
+            )
+            messagebox.showinfo(
+                "Analysis Complete",
+                "✅ No sensitive documents found!\n\nYour documents appear to be safe."
+            )
+            return
+        
+        # Count by type
+        text_count = len(text_sensitive_files)
+        image_count = len(ocr_results)
+        
+        summary = f"""{'='*80}
+🚨 SENSITIVE DOCUMENTS FOUND: {len(all_sensitive_files)}
+{'='*80}
+
+Analysis Complete:
+• Text/MD Files: {text_count} sensitive file(s)
+• Images (OCR): {image_count} sensitive file(s)
+
+A detailed review window has been opened showing:
+• File locations
+• Risk levels and categories
+• Recommended actions
+• Quick action buttons
+
+Please review each file carefully and take appropriate action.
+{'='*80}
+"""
+        self.results_text.insert("end", summary)
+        
+        # Show combined popup
+        self.show_results_popup(all_sensitive_files)
     
     def display_sensitive_results(self, results):
         """Display LLM-analyzed sensitive documents in popup"""
@@ -1819,7 +2484,7 @@ Please review each file carefully and take appropriate action.
             messagebox.showwarning("Empty Query", "Please enter a search query!")
             return
         
-        db_path = self.db_path_entry.get().strip()
+        db_path = self.db_path
         if not db_path:
             db_path = "./chroma_db"
         
