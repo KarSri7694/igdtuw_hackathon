@@ -2212,25 +2212,33 @@ Total documents in database: {encoder.collection.count()}
                 self.app.after(0, lambda: self.progress_label.configure(text="Collecting files to analyze..."))
                 self.app.after(0, lambda: self.progress_bar.set(0.15))
                 
-                # Collect OCR files to analyze (images only - text files already analyzed during scan)
+                # Collect OCR files to analyze (only from current scan - not all files in folder)
                 all_files = []
                 
-                # Get OCR files from images only
-                if os.path.exists(output_folder):
-                    for filename in os.listdir(output_folder):
-                        if filename.endswith('.txt') and filename.startswith('ocr_'):
-                            file_path = os.path.join(output_folder, filename)
-                            if os.path.isfile(file_path):
-                                all_files.append((file_path, True))  # (path, is_ocr)
+                # Get OCR files from the last scan results only (newly created OCR files)
+                if self.last_scan_results:
+                    for result in self.last_scan_results:
+                        # Only process images that have OCR files from this scan
+                        if result.get('file_type') == 'image' and result.get('ocr_file'):
+                            ocr_file_path = result.get('ocr_file')
+                            if os.path.isfile(ocr_file_path):
+                                all_files.append((ocr_file_path, True))  # (path, is_ocr)
                 
                 # Note: We do NOT analyze txt/md files here as they are already analyzed during initial scan
                 # This prevents duplicate analysis of non-image text content
                 
                 if not all_files:
-                    self.app.after(0, lambda: messagebox.showinfo(
-                        "No Documents",
-                        "No documents found to analyze.\n\nPlease scan/encode documents first."
-                    ))
+                    # Check if no scan was performed
+                    if not self.last_scan_results:
+                        self.app.after(0, lambda: messagebox.showinfo(
+                            "No Scan Results",
+                            "No scan has been performed yet.\n\nPlease run 'Start Privacy Scan' first to scan images."
+                        ))
+                    else:
+                        self.app.after(0, lambda: messagebox.showinfo(
+                            "No Images to Analyze",
+                            "No images were found in the last scan.\n\nMake sure OCR is enabled and images exist in the selected folder."
+                        ))
                     self.app.after(0, lambda: self.progress_bar.set(0))
                     return
                 
